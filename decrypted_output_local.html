@@ -1042,10 +1042,27 @@
                 });
             }
 
+            function deriveCategory(value) {
+                const numeric = Number(value);
+                if (Number.isNaN(numeric)) return '-';
+                return numeric >= 5 ? 'Big' : 'Small';
+            }
+
+            function getPredictionCategory(entry) {
+                if (!entry) return '-';
+                return entry.category || entry.predictionCategory || deriveCategory(entry.prediction);
+            }
+
+            function getActualCategory(entry) {
+                if (!entry) return '';
+                if (entry.actualCategory) return entry.actualCategory;
+                if (entry.actual) return deriveCategory(entry.actual);
+                return '';
+            }
           
             updateLanguage();
 
-          
+
             const navItems = document.querySelectorAll('.navigation ul li');
             const sections = document.querySelectorAll('.content-section');
 
@@ -1251,8 +1268,9 @@
                 }
 
               
+                const currentCategory = getPredictionCategory(predictionResult);
                 document.getElementById('currentPeriod').textContent = predictionResult.period.slice(-5);
-                document.getElementById('currentResult').textContent = predictionResult.prediction || '-';
+                document.getElementById('currentResult').textContent = currentCategory || '-';
                 const confidence = predictionResult.confidence || 0;
                 document.getElementById('confidenceFill').style.width = `${confidence}%`;
                 document.getElementById('confidenceText').textContent = `${confidence}%`;
@@ -1288,7 +1306,7 @@
 
                 if (isNotificationsEnabled && predictionResult.prediction) {
                     if (Notification.permission === 'granted') {
-                        new Notification(`New Prediction: ${predictionResult.prediction}`, {
+                        new Notification(`New Prediction: ${currentCategory || predictionResult.prediction}`, {
                             body: `Period: ${predictionResult.period.slice(-5)}\nConfidence: ${confidence}%`,
                             icon: 'https://via.placeholder.com/32'
                         });
@@ -1299,7 +1317,7 @@
                 if (pendingPredictions && pendingPredictions.length > 0) {
                     const latest = pendingPredictions[0];
                     if (myPredictionNumber) {
-                        myPredictionNumber.textContent = latest.prediction || '-';
+                        myPredictionNumber.textContent = getPredictionCategory(latest) || '-';
                     }
                     if (myPredictionOutcome) {
                         const label = latest.status === 'win' ? 'Win' : latest.status === 'loss' ? 'Loss' : 'Pending';
@@ -1322,6 +1340,8 @@
                 historyContainer.innerHTML = '';
 
                 predictions.forEach((entry, index) => {
+                    const predictionLabel = getPredictionCategory(entry);
+                    const actualLabel = getActualCategory(entry);
                     const status = entry.status.toLowerCase();
                     const iconClass = {
                         win: 'fas fa-check-circle win-icon',
@@ -1340,17 +1360,18 @@
                     historyItem.className = `history-item ${status} flex items-center justify-between p-4 rounded-xl`;
                     historyItem.innerHTML = `
                         <div class="watermark">alpha</div>
-                        <div class="flex items-center space-x-3">
-                            <div class="status-icon ${badgeClass}">
-                                <i class="${iconClass}"></i>
-                            </div>
-                            <div>
-                                <p class="text-lg font-semibold">${entry.period.slice(-5)}</p>
-                                <p class="text-sm">Prediction: ${entry.prediction}</p>
-                                ${entry.actual ? `<p class="text-sm">Actual: ${entry.actual}</p>` : ''}
-                                ${entry.confidence ? `<p class="text-sm">Confidence: ${entry.confidence}%</p>` : ''}
-                                <p class="text-sm capitalize">${status}</p>
-                            </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="status-icon ${badgeClass}">
+                                        <i class="${iconClass}"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-lg font-semibold">${entry.period.slice(-5)}</p>
+                                        <p class="text-sm">Prediction: ${predictionLabel}</p>
+                                        ${actualLabel ? `<p class="text-sm">Actual: ${actualLabel}</p>` : ''}
+                                        ${entry.color ? `<p class="text-xs uppercase">${entry.color}</p>` : ''}
+                                        ${entry.confidence ? `<p class="text-sm">Confidence: ${entry.confidence}%</p>` : ''}
+                                        <p class="text-sm capitalize">${status}</p>
+                                    </div>
                         </div>
                         <button class="delete-btn transition" data-index="${index}">
                             <i class="fas fa-trash-alt"></i>

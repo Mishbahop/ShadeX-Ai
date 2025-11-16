@@ -35,7 +35,8 @@ const statsState = {
   totalWins: 0,
   totalLosses: 0,
   streak: '',
-  lastFive: ''
+  lastFivePattern: '',
+  lastFiveNumbers: ''
 };
 
 function getPeriodIdentifier() {
@@ -68,7 +69,11 @@ function updateWinRate() {
 
 function updateHistoryMetadata() {
   const recent = pendingPredictions.slice(0, 5);
-  statsState.lastFive = recent.map(entry => entry.prediction).join(',') || '';
+  statsState.lastFiveNumbers = recent.map(entry => entry.prediction).join(',') || '';
+  statsState.lastFivePattern =
+    recent
+      .map(entry => entry.category || determineCategory(entry.prediction))
+      .join(',') || '';
   statsState.streak = recent
     .map(entry => (entry.status === 'win' ? 'W' : entry.status === 'loss' ? 'L' : 'P'))
     .join('');
@@ -146,7 +151,9 @@ async function buildPredictionResult() {
   const confidence = Math.floor(65 + Math.random() * 30);
   const rankedPredictions = createRankedPredictions(prediction);
   const actual = officialEntry?.number;
-  const category = officialEntry ? determineCategory(actual) : (Math.random() > 0.5 ? 'Big' : 'Small');
+  const predictionCategory = determineCategory(prediction);
+  const actualCategory = actual ? determineCategory(actual) : undefined;
+  const category = officialEntry ? actualCategory : predictionCategory;
   const status = actual ? (prediction === actual ? 'win' : 'loss') : 'pending';
 
   const record = {
@@ -156,6 +163,8 @@ async function buildPredictionResult() {
     confidence,
     rankedPredictions,
     category,
+    predictionCategory,
+    actualCategory,
     actual,
     color: officialEntry?.color
   };
@@ -192,7 +201,8 @@ app.post('/user/Game/api.php', async (req, res) => {
         totalWins: statsState.totalWins,
         totalLosses: statsState.totalLosses,
         streak: statsState.streak,
-        lastFive: statsState.lastFive
+        lastFive: statsState.lastFivePattern || statsState.lastFiveNumbers,
+        lastFiveNumbers: statsState.lastFiveNumbers
       };
       console.log(`  ✓ Returning stats: ${stats.winRate}%`);
       return res.json(stats);
