@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>alpha</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+    <style>
+        body {
+            font-family: 'El Messiri', sans-serif;
+            background: #ffffff; /* White background */
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+            margin: 0;
+            padding: 0;
+            color: #333333; /* Soft dark gray for text */
+        }
+        * {
+            color: #333333; /* Default text color */
+        }
+        .popup, .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(217, 246, 247, 0.8); /* Soft Cyan with transparency */
+            padding: 1.5rem;
+            border-radius: 2rem; /* Elegant, dreamy curves */
+            box-shadow: 0 6px 16px rgba(217, 246, 247, 0.25); /* Soft shadow */
+            backdrop-filter: blur(12px); /* Frosted glass effect */
+            z-index: 1000;
+            width: 90%;
+            max-width: 400px;
+            border: 2px solid #d9f6f7; /* Soft Cyan border */
+        }
+        .popup.active, .modal.active {
+            display: block;
+        }
+        .card {
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #ffffff, #f7fcff); /* White to soft blue-white */
+            border-radius: 2rem; /* Elegant, dreamy curves */
+            box-shadow: 0 6px 12px rgba(217, 246, 247, 0.2); /* Soft shadow */
+            backdrop-filter: blur(12px); /* Frosted glass effect */
+            position: relative;
+            margin: 0.75rem;
+            overflow: hidden;
+        }
+        .card:hover {
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 8px 16px rgba(217, 246, 247, 0.3); /* Soft shadow */
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #d9f6f7, #f7fcff); /* Soft Cyan to soft blue-white */
+        }
+        svg {
+            width: 100%;
+            height: auto;
+            margin: 0 auto;
+            display: block;
+        }
+        svg text {
+            text-anchor: middle;
+            dominant-baseline: middle;
+            text-transform: uppercase;
+            animation: stroke 5s infinite alternate;
+            stroke-width: 1.2;
+            stroke: #d9f6f7; /* Soft Cyan */
+            font-size: 130px;
+            fill: rgba(217, 246, 247, 0); /* Soft Cyan transparent */
+        }
+        @media (max-width: 768px) {
+            svg text { font-size: 100px; }
+        }
+        @keyframes stroke {
+            0% { fill: rgba(217, 246, 247, 0); stroke: #d9f6f7; stroke-dashoffset: 25%; stroke-dasharray: 0 50%; stroke-width: 1.2; }
+            70% { fill: rgba(217, 246, 247, 0); stroke: #f7fcff; }
+            80% { fill: rgba(217, 246, 247, 0); stroke: #ffffff; stroke-width: 2.5; }
+            100% { fill: #d9f6f7; stroke: rgba(217, 246, 247, 0); stroke-dashoffset: -25%; stroke-dasharray: 50% 0; stroke-width: 0; }
+        }
+        .history-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: none;
+            overflow: visible;
+            position: relative;
+        }
+        .history-item {
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            border-radius: 1.5rem; /* Soft curves */
+            background: rgba(217, 246, 247, 0.75); /* Soft Cyan with transparency */
+            backdrop-filter: blur(12px); /* Frosted glass effect */
+            box-shadow: 0 4px 14px rgba(217, 246, 247, 0.15); /* Soft shadow */
+            position: relative;
+            overflow: hidden;
+            padding: 1.2rem;
+            border-left: 4px solid transparent;
+        }
+        .history-item.win { border-left-color: #4CAF50; background: linear-gradient(135deg, rgba(76, 175, 80, 0.08), rgba(217, 246, 247, 0.75)); }
+        .history-item.loss { border-left-color: #F44336; background: linear-gradient(135deg, rgba(244, 67, 54, 0.08), rgba(217, 246, 247, 0.75)); }
+        .history-item.pending { border-left-color: #FFC107; background: linear-gradient(135deg, rgba(255, 193, 7, 0.08), rgba(217, 246, 247, 0.75)); }
+        .history-item.skipped { border-left-color: #9E9E9E; background: linear-gradient(135deg, rgba(158, 158, 158, 0.08), rgba(217, 246, 247, 0.75)); }
+        .history-item:hover { transform: scale(1.02); box-shadow: 0 6px 18px rgba(217, 246, 247, 0.25); }
+        .history-item.fade-out { animation: fadeOut 0.5s ease forwards; }
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.95); height: 0; padding: 0; margin: 0; }
+        }
+        .history-item .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 1.5rem;
+            color: rgba(217, 246, 247, 0.15); /* Soft Cyan with opacity */
+            pointer-events: none;
+            z-index: 0;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .small-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #d9f6f7; /* Soft Cyan */
+            border-radius: 50%;
+            animation: float 5s infinite; /* Slower for dreamy effect */
+            z-index: 1;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0); opacity: 0.8; }
+            50% { transform: translate(10px, -10px); opacity: 0.4; }
+            100% { transform: translate(0, 0); opacity: 0.8; }
+        }
+        .delete-btn:hover { color: #d9f6f7; transform: scale(1.3); } /* Soft Cyan */
+        .win-badge { background: rgba(76, 175, 80, 0.15); color: #2E7D32; }
+        .loss-badge { background: rgba(244, 67, 54, 0.15); color: #C62828; }
+        .pending-badge { background: rgba(255, 193, 7, 0.15); color: #FF8F00; }
+        .skipped-badge { background: rgba(158, 158, 158, 0.15); color: #616161; }
+        .status-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            position: relative;
+            overflow: hidden;
+        }
+        .status-icon::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            opacity: 0.2;
+            background: radial-gradient(circle, currentColor 0%, transparent 70%);
+        }
+        .win-icon { color: #4CAF50; animation: pulseWin 1.5s infinite; }
+        .loss-icon { color: #F44336; animation: pulseLoss 1s infinite; }
+        .pending-icon { color: #FFC107; animation: rotate 2s infinite linear; }
+        .skipped-icon { color: #9E9E9E; animation: pulseSkip 1.5s infinite; }
+        @keyframes pulseWin {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+        }
+        @keyframes pulseLoss {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes pulseSkip {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .dashboard-card {
+            background: rgba(217, 246, 247, 0.8); /* Soft Cyan with transparency */
+            border-radius: 1.8rem; /* Soft curves */
+            padding: 1.2rem;
+            box-shadow: 0 4px 10px rgba(217, 246, 247, 0.15); /* Soft shadow */
+            backdrop-filter: blur(12px); /* Frosted glass effect */
+            transition: all 0.3s ease;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 14px rgba(217, 246, 247, 0.25); /* Soft shadow */
+        }
+        .confidence-meter {
+            height: 10px;
+            background: #f7fcff; /* Soft blue-white */
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+        }
+        .confidence-fill {
+            height: 100%;
+            background: #d9f6f7; /* Soft Cyan */
+            transition: width 0.5s ease;
+        }
+        .navigation {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 350px;
+            height: 70px;
+            background: rgba(217, 246, 247, 0.8); /* Soft Cyan with transparency */
+            backdrop-filter: blur(12px); /* Frosted glass effect */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 2rem; /* Elegant curves */
+            box-shadow: 0 6px 12px rgba(217, 246, 247, 0.3); /* Soft shadow */
+            z-index: 1000;
+        }
+        .navigation ul {
+            display: flex;
+            width: 300px;
+        }
+        .navigation ul li {
+            position: relative;
+            list-style: none;
+            width: 75px;
+            height: 70px;
+            z-index: 1;
+        }
+        .navigation ul li a {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            width: 100%;
+            text-align: center;
+            font-weight: 500;
+        }
+        .navigation ul li a .icon {
+            position: relative;
+            display: block;
+            line-height: 75px;
+            font-size: 1.5em;
+            text-align: center;
+            transition: 0.5s;
+        }
+        .navigation ul li.active a .icon { transform: translateY(-32px); }
+        .navigation ul li a .text {
+            position: absolute;
+            font-weight: 400;
+            font-size: 0.75em;
+            letter-spacing: 0.05em;
+            transition: 0.5s;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .navigation ul li.active a .text { opacity: 1; transform: translateY(10px); }
+        .indicator {
+            position: absolute;
+            top: -50%;
+            width: 70px;
+            height: 70px;
+            background: #d9f6f7; /* Soft Cyan */
+            border-radius: 50%;
+            border: 6px solid #f7fcff; /* Soft blue-white */
+            transition: 0.5s;
+        }
+        .indicator::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -22px;
+            width: 20px;
+            height: 20px;
+            background: transparent;
+            border-top-right-radius: 20px;
+            box-shadow: 1px -10px 0 0 #f7fcff; /* Soft blue-white */
+        }
+        .indicator::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -22px;
+            width: 20px;
+            height: 20px;
+            background: transparent;
+            border-top-left-radius: 20px;
+            box-shadow: -1px -10px 0 0 #f7fcff; /* Soft blue-white */
+        }
+        .navigation ul li:nth-child(1).active ~ .indicator { transform: translateX(calc(75px * 0)); }
+        .navigation ul li:nth-child(2).active ~ .indicator { transform: translateX(calc(75px * 1)); }
+        .navigation ul li:nth-child(3).active ~ .indicator { transform: translateX(calc(75px * 2)); }
+        .navigation ul li:nth-child(4).active ~ .indicator { transform: translateX(calc(75px * 3)); }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+        .mode-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        .mode-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .mode-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #d9f6f7; /* Soft Cyan */
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .mode-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: #ffffff; /* White */
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .mode-slider {
+            background-color: #4CAF50;
+        }
+        input:checked + .mode-slider:before {
+            transform: translateX(30px);
+        }
+        .mode-icons {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 8px;
+            pointer-events: none;
+        }
+        .mode-icons i, .mode-icons span {
+            font-size: 14px;
+        }
+        .contact-links {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+        .contact-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            font-size: 12px;
+        }
+        .contact-link i {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        .period-id {
+            font-family: monospace;
+            letter-spacing: 2px;
+            font-size: 1.2rem;
+        }
+        #currentPeriod, #currentResult {
+            border: none !important;
+            background: #f7fcff !important; /* Soft blue-white */
+        }
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        button, .btn {
+            border-radius: 1.2rem; /* Soft curves */
+            background: #d9f6f7; /* Soft Cyan */
+            backdrop-filter: blur(12px); /* Frosted glass effect */
+            color: #ffffff; /* White text on buttons */
+            transition: all 0.3s ease;
+        }
+        button:hover, .btn:hover {
+            background: #f7fcff; /* Soft blue-white */
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(217, 246, 247, 0.3); /* Soft glow */
+        }
+        @media (max-width: 768px) {
+            .card { padding: 0.75rem; margin: 0.5rem; border-radius: 1.5rem; }
+            .grid-cols-2 { grid-template-columns: 1fr; }
+            .md\\:grid-cols-3 { grid-template-columns: 1fr 1fr; }
+            .text-3xl { font-size: 1.5rem; }
+            .text-2xl { font-size: 1.25rem; }
+            .text-xl { font-size: 1rem; }
+            .text-lg { font-size: 0.875rem; }
+            .text-sm { font-size: 0.75rem; }
+            .p-6 { padding: 0.75rem; }
+            .p-5 { padding: 0.5rem; }
+            .w-12 { width: 2.5rem; height: 2.5rem; }
+            .history-item { padding: 1rem; border-radius: 1.2rem; }
+            .history-item .watermark { font-size: 1rem; }
+            .rounded-xl { border-radius: 0.75rem; }
+            .gap-4 { gap: 0.75rem; }
+            .mb-4 { margin-bottom: 0.75rem; }
+            .mb-2 { margin-bottom: 0.5rem; }
+            .mb-1 { margin-bottom: 0.3rem; }
+            .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
+            .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+            .space-x-2 > * + * { margin-left: 0.5rem; }
+            .space-x-1 > * + * { margin-left: 0.3rem; }
+            .navigation { width: 300px; border-radius: 1.5rem; }
+            .navigation ul { width: 250px; }
+            .navigation ul li { width: 62.5px; }
+            .indicator { width: 60px; height: 60px; }
+            .navigation ul li:nth-child(1).active ~ .indicator { transform: translateX(calc(62.5px * 0)); }
+            .navigation ul li:nth-child(2).active ~ .indicator { transform: translateX(calc(62.5px * 1)); }
+            .navigation ul li:nth-child(3).active ~ .indicator { transform: translateX(calc(62.5px * 2)); }
+            .navigation ul li:nth-child(4).active ~ .indicator { transform: translateX(calc(62.5px * 3)); }
+            .popup, .modal { max-width: 320px; padding: 1rem; border-radius: 1.5rem; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <div class="w-full relative pb-20">
+        <header class="text-center mt-0 mb-2 animate__animated animate__fadeInDown">
+            <svg viewBox="0 0 800 120">
+                <text x="50%" y="50%">alpha</text>
+            </svg>
+        </header>
+
+        <div class="max-w-full mx-auto p-2 w-full">
+            <div class="max-w-4xl mx-auto p-2 w-full">
+                <!-- Home Section -->
+                <div id="homeSection" class="content-section active">
+                    <div class="card mb-4 overflow-hidden gradient-bg animate__animated animate__zoomIn relative">
+                        <div class="bg-white bg-opacity-95 p-6 rounded-lg pulse-animation">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="relative">
+                                    <div class="pl-2">
+                                        <div class="flex items-center space-x-2 mb-2">
+                                            <i class="fas fa-calendar-alt text-2xl animate__animated animate__bounce"></i>
+                                            <h2 class="text-2xl font-bold" data-lang-key="period">Period</h2>
+                                        </div>
+                                        <p id="currentPeriod" class="text-2xl font-semibold p-3 rounded-lg shadow-inner period-id">-</p>
+                                    </div>
+                                </div>
+                                <div class="relative text-right">
+                                    <div class="pr-2">
+                                        <div class="flex items-center justify-end space-x-2 mb-2">
+                                            <h2 class="text-2xl font-bold" data-lang-key="prediction">Prediction</h2>
+                                            <i class="fas fa-poll text-2xl animate__animated animate__bounce"></i>
+                                        </div>
+                                        <p id="currentResult" class="text-2xl font-semibold p-3 rounded-lg shadow-inner">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <p class="text-sm" data-lang-key="confidence">Confidence</p>
+                                <div class="confidence-meter">
+                                    <div id="confidenceFill" class="confidence-fill" style="width: 0%"></div>
+                                </div>
+                                <p id="confidenceText" class="text-sm mt-1">0%</p>
+                            </div>
+                        </div>
+                        <div class="small-dot" style="top: 15%; left: 15%; animation-delay: 0.2s;"></div>
+                        <div class="small-dot" style="top: 85%; left: 85%; animation-delay: 0.8s;"></div>
+                        <div class="small-dot" style="top: 50%; left: 25%; animation-delay: 1.2s;"></div>
+                        <div class="small-dot" style="top: 20%; left: 80%; animation-delay: 1.6s;"></div>
+                    </div>
+
+                    <div class="card mb-4 p-6 animate__animated animate__fadeInUp relative">
+                        <h2 class="text-3xl font-bold text-center mb-4 relative">
+                            <span class="relative z-10 pulse-animation" data-lang-key="analysis_dashboard">Analysis Dashboard</span>
+                            <span class="absolute top-1/2 left-0 w-full h-2 bg-d9f6f7 -translate-y-1/2 rounded-full"></span>
+                        </h2>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div class="dashboard-card animate__animated animate__fadeIn" style="animation-delay: 0s;">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-star text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="most_frequent">Most Frequent</p>
+                                        <p id="mostFrequent" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card animate__animated animate__fadeIn" style="animation-delay: 0.1s;">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-arrow-down text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="least_frequent">Least Frequent</p>
+                                        <p id="leastFrequent" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card animate__animated animate__fadeIn" style="animation-delay: 0.2s;">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-percentage text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="win_rate">Win Rate</p>
+                                        <p id="winRate" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card animate__animated animate__fadeIn" style="animation-delay: 0.3s;">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-trophy text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="wins">Wins</p>
+                                        <p id="totalWinBets" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card animate__animated animate__fadeIn" style="animation-delay: 0.4s;">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-skull text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="losses">Losses</p>
+                                        <p id="totalLossBets" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card flex items-center justify-between animate__animated animate__fadeIn" style="animation-delay: 0.5s;">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-server text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="server_status">Server Status</p>
+                                        <p id="serverStatus" class="font-semibold" data-lang-key="connected">Connected</p>
+                                    </div>
+                                </div>
+                                <div id="serverStatusIndicator" class="w-3 h-3 bg-d9f6f7 rounded-full animate-ping"></div>
+                            </div>
+                        </div>
+                        <div class="small-dot" style="top: 10%; left: 10%; animation-delay: 0.3s;"></div>
+                        <div class="small-dot" style="top: 90%; left: 90%; animation-delay: 0.9s;"></div>
+                        <div class="small-dot" style="top: 30%; left: 70%; animation-delay: 1.5s;"></div>
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <div id="historySection" class="content-section">
+                    <div class="card p-6 animate__animated animate__fadeInUp relative">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-3xl font-bold text-center relative">
+                                <span class="relative z-10 pulse-animation" data-lang-key="history">History</span>
+                                <span class="absolute top-1/2 left-0 w-full h-2 bg-d9f6f7 -translate-y-1/2 rounded-full"></span>
+                            </h2>
+                            <button id="deleteAllHistoryBtn" class="px-4 py-2 rounded-lg transition flex items-center">
+                                <i class="fas fa-trash-alt mr-2"></i><span data-lang-key="delete">Delete</span>
+                            </button>
+                        </div>
+                        <div id="history" class="history-container"></div>
+                        <div class="small-dot" style="top: 20%; left: 30%; animation-delay: 0.4s;"></div>
+                        <div class="small-dot" style="top: 80%; left: 70%; animation-delay: 0.9s;"></div>
+                        <div class="small-dot" style="top: 40%; left: 50%; animation-delay: 1.3s;"></div>
+                    </div>
+                </div>
+
+                <!-- Stats Section -->
+                <div id="statsSection" class="content-section">
+                    <div class="card p-6 animate__animated animate__fadeInUp relative">
+                        <h2 class="text-3xl font-bold text-center mb-4 relative">
+                            <span class="relative z-10 pulse-animation" data-lang-key="statistics">Statistics</span>
+                            <span class="absolute top-1/2 left-0 w-full h-2 bg-d9f6f7 -translate-y-1/2 rounded-full"></span>
+                        </h2>
+                        <div class="stats-grid">
+                            <div class="dashboard-card">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-trophy text-green-500 text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="total_wins">Total Wins</p>
+                                        <p id="statsTotalWins" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-skull text-red-500 text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="total_losses">Total Losses</p>
+                                        <p id="statsTotalLosses" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-percentage text-yellow-500 text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="win_rate">Win Rate</p>
+                                        <p id="statsWinRate" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-fire text-orange-500 text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="current_streak">Current Streak</p>
+                                        <p id="currentStreak" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-history text-blue-500 text-lg"></i>
+                                    <div>
+                                        <p class="text-sm" data-lang-key="last_five_results">Last 5 Results</p>
+                                        <p id="lastFiveResults" class="text-xl font-bold">-</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="small-dot" style="top: 15%; left: 20%; animation-delay: 0.5s;"></div>
+                        <div class="small-dot" style="top: 85%; left: 80%; animation-delay: 1s;"></div>
+                    </div>
+                </div>
+
+            
+                <div id="settingsSection" class="content-section">
+                    <div class="card p-6 animate__animated animate__fadeInUp relative">
+                        <h2 class="text-3xl font-bold text-center mb-4 relative">
+                            <span class="relative z-10 pulse-animation" data-lang-key="settings">Settings</span>
+                            <span class="absolute top-1/2 left-0 w-full h-2 bg-d9f6f7 -translate-y-1/2 rounded-full"></span>
+                        </h2>
+                        <div class="flex flex-col gap-4">
+                          
+                            <div class="dashboard-card">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-chart-line text-lg"></i>
+                                        <div>
+                                            <p class="text-sm" data-lang-key="status">Status</p>
+                                            <p id="totalWins" class="text-sm">Total Wins: 0</p>
+                                            <p id="totalLosses" class="text-sm">Total Losses: 0</p>
+                                        </div>
+                                    </div>
+                                    <p id="eligibilityStatus" class="text-sm font-semibold text-yellow-600" data-lang-key="pending">Pending</p>
+                                </div>
+                            </div>
+
+                           
+                            <div class="dashboard-card">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-globe text-lg"></i>
+                                        <p class="text-sm" data-lang-key="language">Language</p>
+                                    </div>
+                                    <label class="mode-toggle">
+                                        <input type="checkbox" id="languageToggle">
+                                        <span class="mode-slider"></span>
+                                        <div class="mode-icons">
+                                            <span>EN</span>
+                                            <span>HI</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                       
+                            <div class="dashboard-card">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-bell text-lg"></i>
+                                        <p class="text-sm" data-lang-key="notifications">Notifications</p>
+                                    </div>
+                                    <label class="mode-toggle">
+                                        <input type="checkbox" id="notificationToggle">
+                                        <span class="mode-slider"></span>
+                                        <div class="mode-icons">
+                                            <i class="fas fa-bell-slash"></i>
+                                            <i class="fas fa-bell"></i>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                           
+                            <div class="dashboard-card">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-volume-up text-lg"></i>
+                                        <p class="text-sm" data-lang-key="sound">Sound</p>
+                                    </div>
+                                    <label class="mode-toggle">
+                                        <input type="checkbox" id="soundToggle" checked>
+                                        <span class="mode-slider"></span>
+                                        <div class="mode-icons">
+                                            <i class="fas fa-volume-mute"></i>
+                                            <i class="fas fa-volume-up"></i>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                          
+                            <div class="dashboard-card cursor-pointer transition" onclick="resetSettings()">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-undo text-lg"></i>
+                                        <p class="text-sm" data-lang-key="reset_settings">Reset Settings</p>
+                                    </div>
+                                    <span class="text-sm" data-lang-key="reset">Reset</span>
+                                </div>
+                            </div>
+
+                          
+                            <div class="dashboard-card">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-cog text-lg"></i>
+                                        <p class="text-sm" data-lang-key="prediction_mode">Prediction Mode</p>
+                                    </div>
+                                    <label class="mode-toggle">
+                                        <input type="checkbox" id="predictionModeToggle">
+                                        <span class="mode-slider"></span>
+                                        <div class="mode-icons">
+                                            <i class="fas fa-moon"></i>
+                                            <i class="fas fa-bolt"></i>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                         
+                            <div onclick="openVideoPopup()" class="dashboard-card cursor-pointer transition">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fab fa-youtube text-lg"></i>
+                                        <p class="text-sm" data-lang-key="how_to_use">How To Use</p>
+                                    </div>
+                                    <span class="text-sm" data-lang-key="watch_video">Watch Video</span>
+                                </div>
+                            </div>
+
+                           
+                            <div onclick="window.open('https://t.me/+C4n496SxVnk2N2Nl', '_blank')" class="dashboard-card cursor-pointer transition">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fab fa-telegram text-lg"></i>
+                                        <p class="text-sm" data-lang-key="telegram">Telegram</p>
+                                    </div>
+                                    <span class="text-sm" data-lang-key="join_channel">Join Channel</span>
+                                </div>
+                            </div>
+
+                           
+                            <div onclick="window.open('https://instagram.com/dev.slorito', '_blank')" class="dashboard-card cursor-pointer transition">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fab fa-instagram text-lg"></i>
+                                        <p class="text-sm" data-lang-key="instagram">Instagram</p>
+                                    </div>
+                                    <span class="text-sm" data-lang-key="follow_us">Follow Us</span>
+                                </div>
+                            </div>
+
+                      
+                            <div onclick="window.open('https://babypredictor.in/', '_blank')" class="dashboard-card cursor-pointer transition">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-shield-alt text-lg"></i>
+                                        <p class="text-sm" data-lang-key="privacy_policy">Privacy Policy</p>
+                                    </div>
+                                    <span class="text-sm" data-lang-key="read_more">Read More</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="small-dot" style="top: 10%; left: 15%; animation-delay: 0.6s;"></div>
+                        <div class="small-dot" style="top: 90%; left: 85%; animation-delay: 1.1s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="navigation">
+            <ul>
+                <li class="active">
+                    <a href="#" data-section="homeSection">
+                        <span class="icon"><ion-icon name="home-outline"></ion-icon></span>
+                        <span class="text" data-lang-key="home">Home</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" data-section="historySection">
+                        <span class="icon"><ion-icon name="time-outline"></ion-icon></span>
+                        <span class="text" data-lang-key="history">History</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" data-section="statsSection">
+                        <span class="icon"><ion-icon name="bar-chart-outline"></ion-icon></span>
+                        <span class="text" data-lang-key="stats">Stats</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" data-section="settingsSection">
+                        <span class="icon"><ion-icon name="settings-outline"></ion-icon></span>
+                        <span class="text" data-lang-key="settings">Settings</span>
+                    </a>
+                </li>
+                <div class="indicator"></div>
+            </ul>
+        </div>
+
+       
+        <div id="videoPopup" class="popup">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold" data-lang-key="how_to_use_newro_x">How To Use alpha</h3>
+                <button onclick="closeVideoPopup()" class="hover:text-d9f6f7">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="video-container">
+                <iframe width="560" height="315"
+                    src="https://www.youtube.com/embed/R2yAeqQFpbE?start=57"
+                    title="YouTube video player"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allowfullscreen>
+                </iframe>
+            </div>
+        </div>
+        
+
+       
+        <div id="confirmModal" class="modal">
+            <h3 class="text-lg font-semibold mb-4" data-lang-key="confirm_action">Confirm Action</h3>
+            <p id="modalMessage" class="mb-4"></p>
+            <div class="flex justify-end space-x-2">
+                <button id="cancelModalBtn" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition" data-lang-key="cancel">Cancel</button>
+                <button id="confirmModalBtn" class="px-4 py-2 rounded-lg transition" data-lang-key="confirm">Confirm</button>
+            </div>
+        </div>
+
+        <script>
+          
+            const translations = {
+                en: {
+                    period: "Period",
+                    prediction: "Prediction",
+                    confidence: "Confidence",
+                    analysis_dashboard: "Analysis Dashboard",
+                    most_frequent: "Most Frequent",
+                    least_frequent: "Least Frequent",
+                    win_rate: "Win Rate",
+                    wins: "Wins",
+                    losses: "Losses",
+                    server_status: "Server Status",
+                    connected: "Connected",
+                    disconnected: "Disconnected",
+                    history: "History",
+                    delete: "Delete",
+                    statistics: "Statistics",
+                    total_wins: "Total Wins",
+                    total_losses: "Total Losses",
+                    current_streak: "Current Streak",
+                    last_five_results: "Last 5 Results",
+                    settings: "Settings",
+                    status: "Status",
+                    language: "Language",
+                    notifications: "Notifications",
+                    sound: "Sound",
+                    reset_settings: "Reset Settings",
+                    reset: "Reset",
+                    prediction_mode: "Prediction Mode",
+                    how_to_use: "How To Use",
+                    watch_video: "Watch Video",
+                    telegram: "Telegram",
+                    join_channel: "Join Channel",
+                    instagram: "Instagram",
+                    follow_us: "Follow Us",
+                    privacy_policy: "Privacy Policy",
+                    read_more: "Read More",
+                    how_to_use_newro_x: "How To Use alpha",
+                    confirm_action: "Confirm Action",
+                    cancel: "Cancel",
+                    confirm: "Confirm",
+                    pending: "Pending",
+                    delete_item_confirm: "Are you sure you want to delete this history item?",
+                    delete_all_confirm: "Are you sure you want to delete all history items?",
+                    reset_settings_confirm: "Are you sure you want to reset all settings to default?"
+                },
+                hi: {
+                    period: "अवधि",
+                    prediction: "भविष्यवाणी",
+                    confidence: "आत्मविश्वास",
+                    analysis_dashboard: "विश्लेषण डैशबोर्ड",
+                    most_frequent: "सबसे अधिक बार",
+                    least_frequent: "सबसे कम बार",
+                    win_rate: "जीत की दर",
+                    wins: "जीत",
+                    losses: "हानि",
+                    server_status: "सर्वर स्थिति",
+                    connected: "जुड़ा हुआ",
+                    disconnected: "डिस्कनेक्ट किया गया",
+                    history: "इतिहास",
+                    delete: "हटाएं",
+                    statistics: "आंकड़े",
+                    total_wins: "कुल जीत",
+                    total_losses: "कुल हानि",
+                    current_streak: "वर्तमान लकीर",
+                    last_five_results: "अंतिम 5 परिणाम",
+                    settings: "सेटिंग्स",
+                    status: "स्थिति",
+                    language: "भाषा",
+                    notifications: "सूचनाएं",
+                    sound: "ध्वनि",
+                    reset_settings: "सेटिंग्स रीसेट करें",
+                    reset: "रीसेट",
+                    prediction_mode: "भविष्यवाणी मोड",
+                    how_to_use: "उपयोग कैसे करें",
+                    watch_video: "वीडियो देखें",
+                    telegram: "टेलीग्राम",
+                    join_channel: "चैनल में शामिल हों",
+                    instagram: "इंस्टाग्राम",
+                    follow_us: "हमें फॉलो करें",
+                    privacy_policy: "गोपनीयता नीति",
+                    read_more: "और पढ़ें",
+                    how_to_use_newro_x: "alpha का उपयोग कैसे करें",
+                    confirm_action: "कार्रवाई की पुष्टि करें",
+                    cancel: "रद्द करें",
+                    confirm: "पुष्टि करें",
+                    pending: "लंबित",
+                    delete_item_confirm: "क्या आप इस इतिहास आइटम को हटाना चाहते हैं?",
+                    delete_all_confirm: "क्या आप सभी इतिहास आइटम को हटाना चाहते हैं?",
+                    reset_settings_confirm: "क्या आप सभी सेटिंग्स को डिफ़ॉल्ट पर रीसेट करना चाहते हैं?"
+                }
+            };
+
+            let currentLanguage = localStorage.getItem('language') || 'en';
+            let isSoundEnabled = localStorage.getItem('sound') === 'true' || true;
+            let isNotificationsEnabled = localStorage.getItem('notifications') === 'true' || false;
+            let isAdvancedMode = localStorage.getItem('predictionMode') === 'advanced' || false;
+
+            // Initialize UI after DOM is ready
+            function initializeUI() {
+                try {
+                    const langToggle = document.getElementById('languageToggle');
+                    const notifToggle = document.getElementById('notificationToggle');
+                    const soundToggle = document.getElementById('soundToggle');
+                    const modeToggle = document.getElementById('predictionModeToggle');
+                    
+                    if (langToggle) langToggle.checked = currentLanguage === 'hi';
+                    if (notifToggle) notifToggle.checked = isNotificationsEnabled;
+                    if (soundToggle) soundToggle.checked = isSoundEnabled;
+                    if (modeToggle) modeToggle.checked = isAdvancedMode;
+                } catch (e) {
+                    console.warn('UI initialization error:', e);
+                }
+            }
+
+        
+            function updateLanguage() {
+                document.querySelectorAll('[data-lang-key]').forEach(element => {
+                    const key = element.getAttribute('data-lang-key');
+                    element.textContent = translations[currentLanguage][key] || element.textContent;
+                });
+            }
+
+          
+            updateLanguage();
+
+          
+            const navItems = document.querySelectorAll('.navigation ul li');
+            const sections = document.querySelectorAll('.content-section');
+
+            navItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    item.classList.add('active');
+
+                    const sectionId = item.querySelector('a').getAttribute('data-section');
+                    sections.forEach(section => section.classList.remove('active'));
+                    document.getElementById(sectionId).classList.add('active');
+                });
+            });
+
+        
+            function openVideoPopup() {
+                document.getElementById('videoPopup').classList.add('active');
+                if (isSoundEnabled) {
+                    new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                }
+            }
+
+            function closeVideoPopup() {
+                document.getElementById('videoPopup').classList.remove('active');
+                if (isSoundEnabled) {
+                    new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                }
+            }
+
+          
+            function showConfirmModal(message, onConfirm) {
+                document.getElementById('modalMessage').textContent = message;
+                document.getElementById('confirmModal').classList.add('active');
+                const confirmBtn = document.getElementById('confirmModalBtn');
+                const cancelBtn = document.getElementById('cancelModalBtn');
+
+                const confirmHandler = () => {
+                    onConfirm();
+                    document.getElementById('confirmModal').classList.remove('active');
+                    confirmBtn.removeEventListener('click', confirmHandler);
+                    if (isSoundEnabled) {
+                        new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                    }
+                };
+
+                confirmBtn.addEventListener('click', confirmHandler);
+                cancelBtn.addEventListener('click', () => {
+                    document.getElementById('confirmModal').classList.remove('active');
+                    if (isSoundEnabled) {
+                        new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                    }
+                });
+            }
+
+          
+            document.getElementById('languageToggle').addEventListener('change', (e) => {
+                currentLanguage = e.target.checked ? 'hi' : 'en';
+                localStorage.setItem('language', currentLanguage);
+                updateLanguage();
+                if (isSoundEnabled) {
+                    new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                }
+            });
+
+            document.getElementById('notificationToggle').addEventListener('change', (e) => {
+                isNotificationsEnabled = e.target.checked;
+                localStorage.setItem('notifications', isNotificationsEnabled);
+                if (isSoundEnabled) {
+                    new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                }
+            });
+
+            document.getElementById('soundToggle').addEventListener('change', (e) => {
+                isSoundEnabled = e.target.checked;
+                localStorage.setItem('sound', isSoundEnabled);
+                if (isSoundEnabled) {
+                    new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                }
+            });
+
+            document.getElementById('predictionModeToggle').addEventListener('change', (e) => {
+                isAdvancedMode = e.target.checked;
+                localStorage.setItem('predictionMode', isAdvancedMode ? 'advanced' : 'normal');
+                fetchPrediction();
+                if (isSoundEnabled) {
+                    new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                }
+            });
+
+            function resetSettings() {
+                showConfirmModal(translations[currentLanguage].reset_settings_confirm, () => {
+                    currentLanguage = 'en';
+                    isSoundEnabled = true;
+                    isNotificationsEnabled = false;
+                    isAdvancedMode = false;
+                    localStorage.setItem('language', currentLanguage);
+                    localStorage.setItem('sound', isSoundEnabled);
+                    localStorage.setItem('notifications', isNotificationsEnabled);
+                    localStorage.setItem('predictionMode', 'normal');
+                    document.getElementById('languageToggle').checked = false;
+                    document.getElementById('notificationToggle').checked = false;
+                    document.getElementById('soundToggle').checked = true;
+                    document.getElementById('predictionModeToggle').checked = false;
+                    updateLanguage();
+                    fetchPrediction();
+                });
+            }
+
+           
+            async function fetchData(action, data = {}) {
+                try {
+                    // Use window.location.origin to ensure same origin host and avoid CORS
+                    const apiUrl = `${window.location.origin}/user/Game/api.php`;
+                    console.debug('[API] Request URL:', apiUrl);
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ action, ...data, mode: isAdvancedMode ? 'advanced' : 'normal' })
+                    });
+                    if (!response.ok) {
+                        console.warn('[API] Non-OK response:', response.status, response.statusText);
+                    }
+                    const text = await response.text();
+                    let result = null;
+                    try {
+                        result = text ? JSON.parse(text) : null;
+                    } catch (err) {
+                        console.warn('[API] Response text is not JSON:', text);
+                        result = null;
+                    }
+                    const fallbackApi = `http://127.0.0.1:4000/user/Game/api.php`;
+                    // If primary origin didn't give JSON, try fallback (127.0.0.1:3001)
+                    if (!result && apiUrl !== fallbackApi) {
+                        try {
+                            console.debug('[API] Trying fallback URL...');
+                            const res2 = await fetch(fallbackApi, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: JSON.stringify({ action, ...data, mode: isAdvancedMode ? 'advanced' : 'normal' })
+                            });
+                            const text2 = await res2.text();
+                            try {
+                                result = text2 ? JSON.parse(text2) : null;
+                            } catch (err2) {
+                                console.warn('[API] Fallback response not JSON:', text2);
+                            }
+                        } catch (e) {
+                            console.warn('[API] Fallback fetch failed:', e);
+                        }
+                    }
+                    if (result.status === 'Request Failed') {
+                        console.error(result.message);
+                        return null;
+                    }
+                    return result;
+                } catch (error) {
+                    console.error('[API] Fetch error:', error);
+                    updateServerStatus(false);
+                    return null;
+                }
+            }
+
+            function updateServerStatus(isConnected) {
+                const statusElement = document.getElementById('serverStatus');
+                const indicator = document.getElementById('serverStatusIndicator');
+                if (isConnected) {
+                    statusElement.textContent = translations[currentLanguage].connected;
+                    indicator.classList.add('animate-ping', 'bg-d9f6f7');
+                    indicator.classList.remove('bg-gray-500');
+                } else {
+                    statusElement.textContent = translations[currentLanguage].disconnected;
+                    indicator.classList.remove('animate-ping', 'bg-d9f6f7');
+                    indicator.classList.add('bg-gray-500');
+                }
+            }
+
+            async function fetchPrediction() {
+                const data = await fetchData('getPrediction');
+                if (!data) return;
+
+                updateServerStatus(true);
+                const predictionResult = data.predictionResult;
+                const pendingPredictions = data.pendingPredictions;
+
+                if (predictionResult.error) {
+                    console.error(predictionResult.error);
+                    return;
+                }
+
+              
+                document.getElementById('currentPeriod').textContent = predictionResult.period.slice(-5);
+                document.getElementById('currentResult').textContent = predictionResult.prediction || '-';
+                const confidence = predictionResult.confidence || 0;
+                document.getElementById('confidenceFill').style.width = `${confidence}%`;
+                document.getElementById('confidenceText').textContent = `${confidence}%`;
+
+            
+                const rankedPredictions = predictionResult.rankedPredictions || [];
+                let mostFrequent = '-';
+                let leastFrequent = '-';
+                if (rankedPredictions.length > 0) {
+                    mostFrequent = rankedPredictions[0].number;
+                    leastFrequent = rankedPredictions[rankedPredictions.length - 1].number;
+                }
+                document.getElementById('mostFrequent').textContent = mostFrequent;
+                document.getElementById('leastFrequent').textContent = leastFrequent;
+
+                
+                updateHistory(pendingPredictions);
+
+              
+                const stats = await fetchData('getStats');
+                if (stats) {
+                    document.getElementById('winRate').textContent = `${stats.winRate}%`;
+                    document.getElementById('totalWinBets').textContent = stats.totalWins;
+                    document.getElementById('totalLosses').textContent = stats.totalLosses;
+                    document.getElementById('statsTotalWins').textContent = stats.totalWins;
+                    document.getElementById('statsTotalLosses').textContent = stats.totalLosses;
+                    document.getElementById('statsWinRate').textContent = `${stats.winRate}%`;
+                    document.getElementById('currentStreak').textContent = stats.streak;
+                    document.getElementById('lastFiveResults').textContent = stats.lastFive || '-';
+                    document.getElementById('totalWins').textContent = `Total Wins: ${stats.totalWins}`;
+                    document.getElementById('totalLosses').textContent = `Total Losses: ${stats.totalLosses}`;
+                }
+
+                if (isNotificationsEnabled && predictionResult.prediction) {
+                    if (Notification.permission === 'granted') {
+                        new Notification(`New Prediction: ${predictionResult.prediction}`, {
+                            body: `Period: ${predictionResult.period.slice(-5)}\nConfidence: ${confidence}%`,
+                            icon: 'https://via.placeholder.com/32'
+                        });
+                    }
+                }
+            }
+
+            function updateHistory(predictions) {
+                const historyContainer = document.getElementById('history');
+                historyContainer.innerHTML = '';
+
+                predictions.forEach((entry, index) => {
+                    const status = entry.status.toLowerCase();
+                    const iconClass = {
+                        win: 'fas fa-check-circle win-icon',
+                        loss: 'fas fa-times-circle loss-icon',
+                        pending: 'fas fa-hourglass-half pending-icon',
+                        skipped: 'fas fa-ban skipped-icon'
+                    }[status] || 'fas fa-question-circle';
+                    const badgeClass = {
+                        win: 'win-badge',
+                        loss: 'loss-badge',
+                        pending: 'pending-badge',
+                        skipped: 'skipped-badge'
+                    }[status] || '';
+
+                    const historyItem = document.createElement('div');
+                    historyItem.className = `history-item ${status} flex items-center justify-between p-4 rounded-xl`;
+                    historyItem.innerHTML = `
+                        <div class="watermark">alpha</div>
+                        <div class="flex items-center space-x-3">
+                            <div class="status-icon ${badgeClass}">
+                                <i class="${iconClass}"></i>
+                            </div>
+                            <div>
+                                <p class="text-lg font-semibold">${entry.period.slice(-5)}</p>
+                                <p class="text-sm">Prediction: ${entry.prediction}</p>
+                                ${entry.actual ? `<p class="text-sm">Actual: ${entry.actual}</p>` : ''}
+                                ${entry.confidence ? `<p class="text-sm">Confidence: ${entry.confidence}%</p>` : ''}
+                                <p class="text-sm capitalize">${status}</p>
+                            </div>
+                        </div>
+                        <button class="delete-btn transition" data-index="${index}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    `;
+                    historyContainer.appendChild(historyItem);
+
+                    historyItem.querySelector('.delete-btn').addEventListener('click', () => {
+                        showConfirmModal(translations[currentLanguage].delete_item_confirm, async () => {
+                            const result = await fetchData('deleteItem', { index });
+                            if (result && result.success) {
+                                historyItem.classList.add('fade-out');
+                                setTimeout(() => {
+                                    updateHistory(result.pendingPredictions);
+                                }, 500);
+                            }
+                        });
+                    });
+                });
+            }
+
+        
+            document.getElementById('deleteAllHistoryBtn').addEventListener('click', () => {
+                showConfirmModal(translations[currentLanguage].delete_all_confirm, async () => {
+                    const result = await fetchData('deleteAll');
+                    if (result && result.success) {
+                        updateHistory(result.pendingPredictions);
+                        if (isSoundEnabled) {
+                            new Audio('https://www.soundjay.com/buttons/sounds/button-6.mp3').play();
+                        }
+                    }
+                });
+            });
+
+         
+            try {
+                if (isNotificationsEnabled && Notification && Notification.permission !== 'granted') {
+                    Notification.requestPermission();
+                }
+            } catch (e) {
+                console.warn('Notifications not supported:', e);
+            }
+
+        
+            function startPredictionUpdates() {
+                console.log('[AUTO] Starting automatic prediction updates...');
+                fetchPrediction();
+                setInterval(() => {
+                    console.log(`[AUTO] Fetching prediction at ${new Date().toLocaleTimeString()}`);
+                    fetchPrediction();
+                }, 5000); 
+            }
+
+            // Auto-start on page load
+            function startApp() {
+                initializeUI();
+                startPredictionUpdates();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', startApp);
+            } else {
+                startApp();
+            }
+        </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Test</h1>
+    <div id="output">Loading...</div>
+    <script>
+        console.log('[TEST] Script started');
+        
+        async function testAPI() {
+            console.log('[TEST] Testing API...');
+            try {
+                const response = await fetch('http://localhost:3000/user/Game/api.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({action: 'getPrediction'})
+                });
+                const data = await response.json();
+                console.log('[TEST] API Response:', data);
+                document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (e) {
+                console.error('[TEST] API Error:', e);
+                document.getElementById('output').innerHTML = 'Error: ' + e.message;
+            }
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', testAPI);
+        } else {
+            testAPI();
+        }
+    </script>
+</body>
+</html>
