@@ -101,12 +101,14 @@ function processHistoryEntries(entries) {
     if (!entry || !entry.issueNumber) continue;
     if (processedPeriods.has(entry.issueNumber)) break;
     const predictionMeta = ensurePredictionForPeriod(entry.issueNumber) || {};
+    const predictionCategory =
+      predictionMeta.predictionCategory || determineCategory(predictionMeta.prediction);
     const actualCategory = determineCategory(entry.number ?? entry.premium);
-    const status = 'win';
+    const status = actualCategory === predictionCategory ? 'win' : 'loss';
     const record = {
       period: entry.issueNumber,
       prediction: predictionMeta.prediction || entry.number,
-      predictionCategory: actualCategory,
+      predictionCategory,
       confidence: predictionMeta.confidence || Math.floor(65 + Math.random() * 30),
       rankedPredictions: predictionMeta.rankedPredictions || createRankedPredictions(predictionMeta.prediction || entry.number || '0'),
       category: actualCategory,
