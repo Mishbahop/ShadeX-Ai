@@ -1043,7 +1043,14 @@
             }
 
             function deriveCategory(value) {
-                const numeric = Number(value);
+                if (value === null || value === undefined) return '-';
+                const text = String(value).trim().toLowerCase();
+                if (!text) return '-';
+                if (text.includes('small')) return 'Small';
+                if (text.includes('big')) return 'Big';
+                const digits = text.match(/-?\\d+/);
+                if (!digits) return '-';
+                const numeric = Number(digits[0]);
                 if (Number.isNaN(numeric)) return '-';
                 return numeric >= 5 ? 'Big' : 'Small';
             }

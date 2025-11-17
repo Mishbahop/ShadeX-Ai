@@ -49,8 +49,17 @@ function getPeriodIdentifier() {
   return `${yyyy}${mm}${dd}-${suffix}`;
 }
 
-function determineCategory(number) {
-  const normalized = Number(number);
+function determineCategory(value) {
+  if (value === null || value === undefined) {
+    return 'Unknown';
+  }
+  const text = String(value).trim().toLowerCase();
+  if (!text) return 'Unknown';
+  if (text.includes('small')) return 'Small';
+  if (text.includes('big')) return 'Big';
+  const digitsMatch = text.match(/-?\d+/);
+  if (!digitsMatch) return 'Unknown';
+  const normalized = Number(digitsMatch[0]);
   if (Number.isNaN(normalized)) return 'Unknown';
   return normalized >= 5 ? 'Big' : 'Small';
 }
@@ -154,7 +163,9 @@ async function buildPredictionResult() {
   const predictionCategory = determineCategory(prediction);
   const actualCategory = actual ? determineCategory(actual) : undefined;
   const category = officialEntry ? actualCategory : predictionCategory;
-  const status = actual ? (prediction === actual ? 'win' : 'loss') : 'pending';
+  const status = actual
+    ? (actualCategory === predictionCategory ? 'win' : 'loss')
+    : 'pending';
 
   const record = {
     period,
