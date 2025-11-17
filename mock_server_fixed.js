@@ -30,6 +30,7 @@ const OFFICIAL_ENDPOINT = '/WinGo/WinGo_30S/GetHistoryIssuePage.json';
 const MAX_HISTORY_ENTRIES = 12;
 const pendingPredictions = [];
 const processedPeriods = new Set();
+const upcomingPredictions = new Map();
 const statsState = {
   winRate: 0,
   totalWins: 0,
@@ -64,6 +65,62 @@ function determineCategory(value) {
   return normalized >= 5 ? 'Big' : 'Small';
 }
 
+function incrementIssueNumber(issue) {
+  if (!issue) return '';
+  try {
+    const normalized = BigInt(issue);
+    const next = normalized + 1n;
+    const issueLength = issue.length;
+    return next.toString().padStart(issueLength, '0');
+  } catch (error) {
+    return issue;
+  }
+}
+
+function ensurePredictionForPeriod(period) {
+  if (!period) return null;
+  if (upcomingPredictions.has(period)) {
+    return upcomingPredictions.get(period);
+  }
+  const prediction = String(Math.floor(Math.random() * 10));
+  const predictionCategory = determineCategory(prediction);
+  const confidence = Math.floor(65 + Math.random() * 30);
+  const record = {
+    prediction,
+    predictionCategory,
+    confidence,
+    rankedPredictions: createRankedPredictions(prediction)
+  };
+  upcomingPredictions.set(period, record);
+  return record;
+}
+
+function processHistoryEntries(entries) {
+  if (!Array.isArray(entries)) return;
+  for (const entry of entries) {
+    if (!entry || !entry.issueNumber) continue;
+    if (processedPeriods.has(entry.issueNumber)) break;
+    const predictionMeta = ensurePredictionForPeriod(entry.issueNumber) || {};
+    const predictionCategory = predictionMeta.predictionCategory || determineCategory(predictionMeta.prediction);
+    const actualCategory = determineCategory(entry.number ?? entry.premium);
+    const status = predictionCategory === actualCategory ? 'win' : 'loss';
+    const record = {
+      period: entry.issueNumber,
+      prediction: predictionMeta.prediction || entry.number,
+      predictionCategory,
+      confidence: predictionMeta.confidence || Math.floor(65 + Math.random() * 30),
+      rankedPredictions: predictionMeta.rankedPredictions || createRankedPredictions(predictionMeta.prediction || entry.number || '0'),
+      category: actualCategory,
+      actual: entry.number,
+      actualCategory,
+      status,
+      color: entry.color,
+      confidenceDisplay: predictionMeta.confidence
+    };
+    addPredictionRecord(record);
+    upcomingPredictions.delete(entry.issueNumber);
+  }
+}
 function createRankedPredictions(base) {
   const pivot = Number(base) || 0;
   return Array.from({ length: 3 }, (_, index) => ({
@@ -133,62 +190,49 @@ function fetchOfficialHistory() {
 }
 
 async function buildPredictionResult() {
-  let officialEntry;
   try {
     const history = await fetchOfficialHistory();
     const list = history?.data?.list;
-    if (Array.isArray(list) && list.length > 0) {
-      officialEntry = list[0];
-    }
+    processHistoryEntries(list);
+    const latestEntry = Array.isArray(list) && list.length > 0 ? list[0] : null;
+    const upcomingPeriod = latestEntry?.issueNumber
+      ? incrementIssueNumber(latestEntry.issueNumber)
+      : getPeriodIdentifier();
+    const predictionMeta = ensurePredictionForPeriod(upcomingPeriod) || {
+      prediction: '0',
+      confidence: 65,
+      rankedPredictions: createRankedPredictions('0'),
+      predictionCategory: 'Small'
+    };
+    return {
+      status: 'OK',
+      predictionResult: {
+        period: upcomingPeriod,
+        prediction: predictionMeta.prediction,
+        confidence: predictionMeta.confidence,
+        rankedPredictions: predictionMeta.rankedPredictions,
+        category: predictionMeta.predictionCategory,
+        status: 'pending'
+      },
+      pendingPredictions
+    };
   } catch (error) {
     console.warn(`[WinGo] Failed to fetch official history: ${error.message}`);
+    const fallbackPeriod = getPeriodIdentifier();
+    const fallbackPrediction = ensurePredictionForPeriod(fallbackPeriod);
+    return {
+      status: 'Error',
+      predictionResult: {
+        period: fallbackPeriod,
+        prediction: fallbackPrediction?.prediction || '0',
+        confidence: fallbackPrediction?.confidence || 0,
+        rankedPredictions: fallbackPrediction?.rankedPredictions || [],
+        category: fallbackPrediction?.predictionCategory || 'Unknown',
+        status: 'pending'
+      },
+      pendingPredictions
+    };
   }
-
-  const period = officialEntry?.issueNumber || getPeriodIdentifier();
-  if (officialEntry && processedPeriods.has(period)) {
-    const existing = pendingPredictions.find(entry => entry.period === period);
-    if (existing) {
-      return {
-        status: 'OK',
-        predictionResult: existing,
-        pendingPredictions
-      };
-    }
-  }
-
-  const prediction = String(Math.floor(Math.random() * 10));
-  const confidence = Math.floor(65 + Math.random() * 30);
-  const rankedPredictions = createRankedPredictions(prediction);
-  const actual = officialEntry?.number;
-  const predictionCategory = determineCategory(prediction);
-  const actualCategory = actual ? determineCategory(actual) : undefined;
-  const category = officialEntry ? actualCategory : predictionCategory;
-  const status = actual
-    ? (actualCategory === predictionCategory ? 'win' : 'loss')
-    : 'pending';
-
-  const record = {
-    period,
-    prediction,
-    status,
-    confidence,
-    rankedPredictions,
-    category,
-    predictionCategory,
-    actualCategory,
-    actual,
-    color: officialEntry?.color
-  };
-
-  if (actual) {
-    addPredictionRecord(record);
-  }
-
-  return {
-    status: 'OK',
-    predictionResult: record,
-    pendingPredictions
-  };
 }
 
 // ========== API ROUTES - MUST COME BEFORE STATIC MIDDLEWARE ==========
