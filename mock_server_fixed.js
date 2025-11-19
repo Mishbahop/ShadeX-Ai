@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const fs = require('fs');
 const https = require('https');
 
 const app = express();
@@ -39,6 +40,15 @@ const statsState = {
   lastFivePattern: '',
   lastFiveNumbers: ''
 };
+const MODEL_PATH = path.resolve(__dirname, 'ai_predictor_model.json');
+let predictorModel = null;
+try {
+  const modelContent = fs.readFileSync(MODEL_PATH, 'utf8');
+  predictorModel = JSON.parse(modelContent);
+  console.log(`[AI] Loaded predictor model (accuracy ${predictorModel.accuracy || 'unknown'}%)`);
+} catch (error) {
+  console.warn('[AI] Predictor model unavailable:', error.message);
+}
 
 function getPeriodIdentifier() {
   const now = new Date();
@@ -77,14 +87,113 @@ function incrementIssueNumber(issue) {
   }
 }
 
-function ensurePredictionForPeriod(period) {
+function getDigitForCategory(category) {
+  if (category === 'Big') {
+    return String(5 + Math.floor(Math.random() * 5));
+  }
+  if (category === 'Small') {
+    return String(Math.floor(Math.random() * 5));
+  }
+  return String(Math.floor(Math.random() * 10));
+}
+
+function extractNumericValue(record) {
+  const source = record?.actual ?? record?.number ?? record?.premium ?? record?.prediction;
+  if (source === null || source === undefined) {
+    return null;
+  }
+  const match = String(source).match(/-?\d+/);
+  if (!match) {
+    return null;
+  }
+  const value = Number(match[0]);
+  if (Number.isNaN(value)) {
+    return null;
+  }
+  return Math.max(0, Math.min(9, value % 10));
+}
+
+function buildFeatureVector(window) {
+  if (!predictorModel?.featureNames) {
+    return null;
+  }
+  const ordered = [...window].reverse();
+  const numbers = [];
+  const categories = [];
+  const colors = [];
+  for (const record of ordered) {
+    const numeric = extractNumericValue(record);
+    if (numeric === null) {
+      return null;
+    }
+    numbers.push(numeric);
+    categories.push(numeric >= 5 ? 'Big' : 'Small');
+    colors.push(String(record.color || '').toLowerCase());
+  }
+  const len = numbers.length;
+  if (!len) return null;
+  const bigCount = categories.filter(cat => cat === 'Big').length;
+  const smallCount = len - bigCount;
+  let streakLen = 1;
+  for (let idx = len - 2; idx >= 0; idx -= 1) {
+    if (categories[idx] === categories[idx + 1]) {
+      streakLen += 1;
+    } else {
+      break;
+    }
+  }
+  const changeCount = categories.reduce((acc, cat, idx) => {
+    if (idx === 0) return 0;
+    return acc + (categories[idx - 1] === cat ? 0 : 1);
+  }, 0);
+  const avgDigit = numbers.reduce((sum, value) => sum + value, 0) / len;
+  const redHits = colors.filter(color => color.includes('red')).length;
+  const greenHits = colors.filter(color => color.includes('green')).length;
+  const featureMap = {
+    bias: 1,
+    ratio_big: bigCount / len,
+    ratio_small: smallCount / len,
+    last_is_big: categories[len - 1] === 'Big' ? 1 : 0,
+    avg_digit_norm: avgDigit / 9,
+    streak_ratio: streakLen / len,
+    change_ratio: changeCount / Math.max(1, len - 1),
+    red_ratio: redHits / len,
+    green_ratio: greenHits / len
+  };
+  return predictorModel.featureNames.map(name => featureMap[name] ?? 0);
+}
+
+function computeAiPrediction(predictions) {
+  if (!predictorModel?.weights) return null;
+  const { windowSize, weights } = predictorModel;
+  if (!windowSize || !Array.isArray(weights) || weights.length === 0) {
+    return null;
+  }
+  if (!Array.isArray(predictions) || predictions.length < windowSize) {
+    return null;
+  }
+  const history = predictions.slice(0, windowSize);
+  const features = buildFeatureVector(history);
+  if (!features) {
+    return null;
+  }
+  const score = features.reduce((sum, value, index) => sum + value * (weights[index] || 0), 0);
+  const boundedScore = Math.max(Math.min(score, 20), -20);
+  const probability = 1 / (1 + Math.exp(-boundedScore));
+  const category = probability >= 0.5 ? 'Big' : 'Small';
+  return { category, probability };
+}
+
+function ensurePredictionForPeriod(period, categoryHint, confidenceHint) {
   if (!period) return null;
   if (upcomingPredictions.has(period)) {
     return upcomingPredictions.get(period);
   }
-  const prediction = String(Math.floor(Math.random() * 10));
-  const predictionCategory = determineCategory(prediction);
-  const confidence = Math.floor(65 + Math.random() * 30);
+  const prediction = categoryHint ? getDigitForCategory(categoryHint) : String(Math.floor(Math.random() * 10));
+  const predictionCategory = categoryHint || determineCategory(prediction);
+  const confidence = typeof confidenceHint === 'number'
+    ? Math.min(99, Math.max(30, Math.floor(confidenceHint)))
+    : Math.floor(65 + Math.random() * 30);
   const record = {
     prediction,
     predictionCategory,
@@ -111,7 +220,7 @@ function processHistoryEntries(entries) {
       predictionCategory,
       confidence: predictionMeta.confidence || Math.floor(65 + Math.random() * 30),
       rankedPredictions: predictionMeta.rankedPredictions || createRankedPredictions(predictionMeta.prediction || entry.number || '0'),
-      category: actualCategory,
+      category: predictionCategory,
       actual: entry.number,
       actualCategory,
       status,
@@ -196,10 +305,16 @@ async function buildPredictionResult() {
     const list = history?.data?.list;
     processHistoryEntries(list);
     const latestEntry = Array.isArray(list) && list.length > 0 ? list[0] : null;
-    const upcomingPeriod = latestEntry?.issueNumber
-      ? incrementIssueNumber(latestEntry.issueNumber)
+    const lastRecordedPeriod = pendingPredictions.length > 0 ? pendingPredictions[0].period : null;
+    const basePeriod = lastRecordedPeriod || latestEntry?.issueNumber;
+    const upcomingPeriod = basePeriod
+      ? incrementIssueNumber(basePeriod) || getPeriodIdentifier()
       : getPeriodIdentifier();
-    const predictionMeta = ensurePredictionForPeriod(upcomingPeriod) || {
+    const aiSuggestion = computeAiPrediction(pendingPredictions);
+    const confidenceHint = aiSuggestion
+      ? Math.min(95, Math.max(40, Math.floor(65 + aiSuggestion.probability * 30)))
+      : undefined;
+    const predictionMeta = ensurePredictionForPeriod(upcomingPeriod, aiSuggestion?.category, confidenceHint) || {
       prediction: '0',
       confidence: 65,
       rankedPredictions: createRankedPredictions('0'),
