@@ -11,6 +11,8 @@ class GlobalKeyAdmin {
         this.itemsPerPage = 10;
         this.currentFilter = 'all';
         this.searchTerm = '';
+        this.apiUrl = 'key-api.php';
+        this.adminPassword = sessionStorage.getItem('admin_password') || '';
         
         this.defaultPrices = {
             '1': 9.99,
@@ -23,13 +25,14 @@ class GlobalKeyAdmin {
         this.init();
     }
     
-    init() {
+    async init() {
+        await this.loadDatabase();
+        
         // Check authentication
         if (!this.checkAuth()) {
             return;
         }
         
-        this.loadDatabase();
         this.setupEventListeners();
         this.renderKeysTable();
         this.updateStats();
@@ -37,14 +40,14 @@ class GlobalKeyAdmin {
     }
     
     checkAuth() {
-        // Load database first to get admin password
-        this.loadDatabase();
-        
         const savedAuth = localStorage.getItem('admin_authenticated');
         const authExpiry = localStorage.getItem('admin_auth_expiry');
         
         // Check if already authenticated and not expired
         if (savedAuth === 'true' && authExpiry && new Date(authExpiry) > new Date()) {
+            if (!this.adminPassword) {
+                this.adminPassword = sessionStorage.getItem('admin_password') || '';
+            }
             return true;
         }
         
@@ -127,8 +130,12 @@ class GlobalKeyAdmin {
             this.showLoginStatus('Please enter password', 'error');
             return;
         }
+
+        const storedPassword = this.getStoredAdminPassword();
         
-        if (password === this.db.settings.admin_password) {
+        if (password === storedPassword) {
+            this.adminPassword = password;
+            sessionStorage.setItem('admin_password', password);
             // Set authentication for 24 hours
             localStorage.setItem('admin_authenticated', 'true');
             const expiry = new Date();
@@ -165,15 +172,28 @@ class GlobalKeyAdmin {
         statusEl.classList.remove('hidden');
     }
     
-    loadDatabase() {
+    async loadDatabase() {
         try {
+            // Prefer server copy so keys are shared across devices
+            let remoteDb = null;
+            try {
+                const response = await fetch(`${this.apiUrl}?action=get_admin_db`, { cache: 'no-store' });
+                if (response.ok) {
+                    remoteDb = await response.json();
+                }
+            } catch (err) {
+                console.warn('Could not fetch remote database, using local copy', err);
+            }
+
             const savedData = localStorage.getItem('global_keys_database');
             
-            if (savedData) {
-                this.db = JSON.parse(savedData);
+            if (remoteDb && remoteDb.keys) {
+                this.db = this.normalizeDatabase(remoteDb);
+            } else if (savedData) {
+                this.db = this.normalizeDatabase(JSON.parse(savedData));
             } else {
                 // Initialize new database
-                this.db = {
+                this.db = this.normalizeDatabase({
                     version: '1.0',
                     settings: {
                         redirect_url: 'https://your-site.com/purchase',
@@ -223,13 +243,19 @@ class GlobalKeyAdmin {
                     ],
                     revenue: 249.98,
                     created_at: new Date().toISOString()
-                };
+                });
                 
                 this.saveDatabase();
             }
             
             this.keys = this.db.keys || [];
             this.filteredKeys = [...this.keys];
+            this.persistLocalDatabase();
+
+            if (!this.adminPassword) {
+                this.adminPassword = this.getStoredAdminPassword();
+                sessionStorage.setItem('admin_password', this.adminPassword);
+            }
             
             // Update UI with settings
             const redirectUrlInput = document.getElementById('redirectUrl');
@@ -248,7 +274,8 @@ class GlobalKeyAdmin {
     
     saveDatabase() {
         try {
-            localStorage.setItem('global_keys_database', JSON.stringify(this.db, null, 2));
+            this.persistLocalDatabase();
+            this.syncDatabaseToServer();
             
             // Create backup with timestamp
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -275,6 +302,63 @@ class GlobalKeyAdmin {
         backupKeys.forEach(key => {
             localStorage.removeItem(key);
         });
+    }
+
+    normalizeDatabase(db) {
+        const normalized = { ...db };
+        normalized.settings = normalized.settings || {};
+        normalized.keys = normalized.keys || [];
+        normalized.activity_logs = normalized.activity_logs || [];
+        if (typeof normalized.revenue !== 'number') {
+            normalized.revenue = Number(normalized.revenue || 0);
+        }
+        if (!normalized.settings.admin_password && normalized.admin_password) {
+            normalized.settings.admin_password = normalized.admin_password;
+        }
+        if (!normalized.admin_password && normalized.settings.admin_password) {
+            normalized.admin_password = normalized.settings.admin_password;
+        }
+        return normalized;
+    }
+
+    persistLocalDatabase() {
+        localStorage.setItem('global_keys_database', JSON.stringify(this.db, null, 2));
+    }
+
+    getStoredAdminPassword() {
+        if (this.db?.settings?.admin_password) return this.db.settings.admin_password;
+        if (this.db?.admin_password) return this.db.admin_password;
+        return 'admin123';
+    }
+
+    async syncDatabaseToServer() {
+        const password = this.adminPassword || this.getStoredAdminPassword();
+        if (!password) {
+            console.warn('Admin password not set; skipping remote sync');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiUrl}?action=save_admin_db`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    admin_password: password,
+                    db: this.db
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Unknown error saving database');
+            }
+        } catch (err) {
+            console.warn('Failed to sync database to server:', err);
+        }
     }
     
     generateId() {
@@ -967,7 +1051,7 @@ class GlobalKeyAdmin {
         
         // Validate password if changing
         if (currentPasswordInput && currentPasswordInput.value) {
-            if (currentPasswordInput.value !== this.db.settings.admin_password) {
+            if (currentPasswordInput.value !== this.getStoredAdminPassword()) {
                 this.showToast('Current password is incorrect', 'error');
                 return;
             }
@@ -975,6 +1059,9 @@ class GlobalKeyAdmin {
             // Update password if new one provided
             if (newPasswordInput && newPasswordInput.value) {
                 this.db.settings.admin_password = newPasswordInput.value;
+                this.db.admin_password = newPasswordInput.value;
+                this.adminPassword = newPasswordInput.value;
+                sessionStorage.setItem('admin_password', newPasswordInput.value);
                 newPasswordInput.value = '';
             }
             
@@ -1089,8 +1176,8 @@ class GlobalKeyAdmin {
         this.showToast(`Cleared ${clearedCount} old logs`);
     }
     
-    refreshAll() {
-        this.loadDatabase();
+    async refreshAll() {
+        await this.loadDatabase();
         this.filterKeys();
         this.updateStats();
         this.loadActivityLogs();

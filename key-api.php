@@ -39,7 +39,20 @@ function loadDatabase() {
     }
     
     $data = file_get_contents($database_file);
-    return json_decode($data, true);
+    $db = json_decode($data, true);
+
+    // Normalize admin password location so both legacy and new clients work
+    if (!isset($db['settings'])) {
+        $db['settings'] = [];
+    }
+    if (isset($db['admin_password']) && !isset($db['settings']['admin_password'])) {
+        $db['settings']['admin_password'] = $db['admin_password'];
+    }
+    if (!isset($db['admin_password']) && isset($db['settings']['admin_password'])) {
+        $db['admin_password'] = $db['settings']['admin_password'];
+    }
+
+    return $db;
 }
 
 function saveDatabase($data) {
@@ -205,6 +218,33 @@ if ($method === 'POST') {
                 echo json_encode(['found' => false]);
             }
             break;
+
+        case 'save_admin_db':
+            $incoming_db = $input['db'] ?? null;
+            $password = $input['admin_password'] ?? '';
+
+            if (!$incoming_db || !is_array($incoming_db)) {
+                echo json_encode(['success' => false, 'message' => 'No database payload received']);
+                exit;
+            }
+
+            $current_password = $db['settings']['admin_password'] ?? $db['admin_password'] ?? 'admin123';
+            if ($current_password && $password !== $current_password) {
+                echo json_encode(['success' => false, 'message' => 'Invalid admin password']);
+                exit;
+            }
+
+            if (!isset($incoming_db['settings'])) {
+                $incoming_db['settings'] = [];
+            }
+            if (!isset($incoming_db['settings']['admin_password']) && isset($incoming_db['admin_password'])) {
+                $incoming_db['settings']['admin_password'] = $incoming_db['admin_password'];
+            }
+            $incoming_db['admin_password'] = $incoming_db['settings']['admin_password'] ?? $current_password;
+
+            saveDatabase($incoming_db);
+            echo json_encode(['success' => true, 'message' => 'Database saved']);
+            break;
             
         default:
             echo json_encode(['error' => 'Invalid action']);
@@ -240,6 +280,10 @@ if ($method === 'POST') {
                 'auto_expire' => $db['settings']['auto_expire'] ?? true,
                 'enable_logging' => $db['settings']['enable_logging'] ?? true
             ]);
+            break;
+
+        case 'get_admin_db':
+            echo json_encode($db);
             break;
             
         default:

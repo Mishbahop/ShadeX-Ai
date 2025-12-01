@@ -231,19 +231,7 @@ const GLOBAL_KEY_SYSTEM = (function() {
                         </p>
                     </div>
                     
-                    <!-- Info Box -->
-                    <div class="bg-gray-800/30 rounded-lg p-4 mb-6 border border-gray-700/50">
-                        <div class="flex items-start space-x-3">
-                            <i class="fas fa-info-circle text-purple-400 mt-1"></i>
-                            <div>
-                                <h4 class="text-white font-medium mb-1">Global Key System</h4>
-                                <p class="text-gray-400 text-sm">
-                                    This key works on all devices. One key = unlimited devices.
-                                    Key expires after purchased duration.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+
                     
                     <!-- Buttons -->
                     <div class="flex space-x-3">
