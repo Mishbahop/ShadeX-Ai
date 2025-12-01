@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prediction Pro - Complete System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: rgba(30, 41, 59, 0.7);
+            --bg-tertiary: rgba(51, 65, 85, 0.5);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: rgba(148, 163, 184, 0.1);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(34, 211, 238, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .glass {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: var(--glass-border);
+        }
+
+        .card-shadow {
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+        }
+
+        .gradient-text {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--text-secondary);
+            border-radius: 20px;
+            opacity: 0.5;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .achievement-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen pb-24">
+    <!-- Header -->
+    <div class="sticky top-0 z-40 backdrop-blur-md card-shadow px-6 py-4 flex justify-between items-center glass">
+        <div>
+            <h1 class="text-xl font-black tracking-tight" style="color: var(--text-primary);">AI PREDICTION PRO</h1>
+            <p class="text-xs text-indigo-500 font-semibold uppercase">Complete System v2.0</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Period Selector -->
+            <select id="periodSelector" class="text-xs font-bold px-3 py-1.5 rounded-lg card-shadow border"
+                style="color: var(--text-primary); background-color: var(--bg-secondary);">
+                <option value="30s">WinGo 30s</option>
+                <option value="1min">WinGo 1Min</option>
+                <option value="3min">WinGo 3Min</option>
+                <option value="5min">WinGo 5Min</option>
+            </select>
+            <button id="darkModeToggle"
+                class="w-8 h-8 rounded-full card-shadow flex items-center justify-center text-xs transition-transform hover:scale-110">
+                <i class="fas fa-moon"></i>
+            </button>
+            <button id="soundToggle"
+                class="w-8 h-8 rounded-full card-shadow flex items-center justify-center text-xs transition-transform hover:scale-110">
+                <i class="fas fa-volume-up"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="px-6 py-6 max-w-md mx-auto space-y-6">
+
+        <!-- Timer & Status -->
+        <div class="text-center space-y-2">
+            <div class="inline-block px-4 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                <p class="text-[10px] font-bold text-indigo-500 tracking-wider">PERIOD <span
+                        id="currentPeriod">--</span></p>
+            </div>
+            <div id="timer"
+                class="text-6xl font-black gradient-text font-mono tracking-tighter transition-transform duration-300">
+                30s
+            </div>
+            <div class="flex justify-center items-center gap-2">
+                <span id="connectionStatus"
+                    class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600">CONNECTING</span>
+                <span id="latencyMs" class="text-[10px] font-bold opacity-50 hidden">0ms</span>
+            </div>
+        </div>
+
+        <!-- Prediction Card -->
+        <div class="rounded-2xl p-6 card-shadow border relative overflow-hidden glass">
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+                <i class="fas fa-brain text-6xl"></i>
+            </div>
+
+            <div class="relative z-10 text-center space-y-4">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-widest opacity-60" data-lang-key="ai_prediction">AI Prediction</p>
+                    <h2 id="predictionResult" class="text-5xl font-black my-2">--</h2>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-bold opacity-70">
+                        <span data-lang-key="confidence">Confidence</span>
+                        <span id="confidenceText">0%</span>
+                    </div>
+                    <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                        <div id="confidenceBar"
+                            class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 w-0 transition-all duration-500">
+                        </div>
+                    </div>
+                    <p id="aiReason" class="text-[10px] font-medium opacity-60 mt-2">Waiting for data...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Action -->
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="submitUserPrediction('Big')" id="btnPredictBig"
+                class="group relative overflow-hidden rounded-xl p-4 card-shadow border transition-all hover:scale-[1.02] active:scale-95">
+                <div
+                    class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                </div>
+                <div class="relative z-10 text-center">
+                    <p class="text-lg font-black text-indigo-500" data-lang-key="big">BIG</p>
+                    <p class="text-[10px] opacity-60">Predict Big</p>
+                </div>
+            </button>
+            <button onclick="submitUserPrediction('Small')" id="btnPredictSmall"
+                class="group relative overflow-hidden rounded-xl p-4 card-shadow border transition-all hover:scale-[1.02] active:scale-95">
+                <div
+                    class="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                </div>
+                <div class="relative z-10 text-center">
+                    <p class="text-lg font-black text-pink-500" data-lang-key="small">SMALL</p>
+                    <p class="text-[10px] opacity-60">Predict Small</p>
+                </div>
+            </button>
+        </div>
+
+        <!-- User Status -->
+        <div class="text-center">
+            <p id="userPredictionStatus" class="text-xs font-medium opacity-70" data-lang-key="choose_prediction">Choose your prediction for the next period</p>
+        </div>
+
+        <!-- Streak Banner -->
+        <div id="streakBanner"
+            class="hidden rounded-xl p-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg transform hover:scale-105 transition-transform">
+            <div class="flex items-center justify-between px-2">
+                <i class="fas fa-fire text-2xl animate-pulse"></i>
+                <div>
+                    <p class="font-black text-lg">🔥 <span id="currentStreak">0</span> Win Streak!</p>
+                    <p class="text-xs opacity-90">Keep it going!</p>
+                </div>
+                <i class="fas fa-chevron-right opacity-50"></i>
+            </div>
+        </div>
+
+        <!-- Analytics Charts -->
+        <div class="space-y-4">
+            <h3 class="text-sm font-bold px-2" style="color: var(--text-primary);" data-lang-key="analytics">
+                <i class="fas fa-chart-line text-indigo-500 mr-2"></i>Analytics
+            </h3>
+
+            <!-- Win Rate Trend -->
+            <div class="rounded-xl p-4 card-shadow border glass">
+                <h4 class="text-xs font-bold mb-3" style="color: var(--text-primary);" data-lang-key="win_rate_trend">Win Rate Trend</h4>
+                <canvas id="winRateChart" height="150"></canvas>
+            </div>
+
+            <!-- Performance Comparison -->
+            <div class="rounded-xl p-4 card-shadow border glass">
+                <h4 class="text-xs font-bold mb-3" style="color: var(--text-primary);" data-lang-key="performance_comparison">Performance Comparison</h4>
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div>
+                        <p class="text-2xl font-black text-indigo-600" id="aiAccuracy">0%</p>
+                        <p class="text-xs" style="color: var(--text-secondary);" data-lang-key="ai_accuracy">AI Accuracy</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-emerald-600" id="userAccuracy">0%</p>
+                        <p class="text-xs" style="color: var(--text-secondary);" data-lang-key="your_accuracy">Your Accuracy</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div>
+            <h3 class="text-sm font-bold mb-3 px-2" style="color: var(--text-primary);" data-lang-key="recent_history">
+                <i class="fas fa-history text-indigo-500 mr-2"></i>Recent History
+            </h3>
+            <div id="historyList" class="space-y-3 pb-10">
+                <div class="text-center py-4" style="color: var(--text-secondary);">
+                    <i class="fas fa-circle-notch fa-spin mb-2 text-indigo-400"></i>
+                    <p class="text-sm" data-lang-key="loading">Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full">
+            <h3 class="text-lg font-bold mb-2" data-lang-key="confirm_action">Confirm Action</h3>
+            <p id="modalMessage" class="text-gray-600 dark:text-gray-300 mb-6"></p>
+            <div class="flex gap-3">
+                <button id="cancelModalBtn" class="flex-1 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg" data-lang-key="cancel">Cancel</button>
+                <button id="confirmModalBtn" class="flex-1 py-2 bg-red-500 text-white rounded-lg" data-lang-key="confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Popup Modal -->
+    <div id="videoPopup" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="relative w-full max-w-2xl">
+            <button onclick="closeVideoPopup()" class="absolute -top-10 right-0 text-white text-2xl">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="aspect-video bg-black rounded-lg overflow-hidden">
+                <!-- Video placeholder -->
+                <div class="w-full h-full flex items-center justify-center">
+                    <div class="text-center text-white">
+                        <i class="fas fa-play-circle text-6xl mb-4"></i>
+                        <p class="text-xl">Tutorial Video</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Achievement Toast -->
+    <div id="achievementToast" class="achievement-toast hidden">
+        <div class="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-sm">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-trophy text-2xl"></i>
+                <div>
+                    <p class="font-bold text-sm" data-lang-key="achievement_unlocked">Achievement Unlocked!</p>
+                    <p id="achievementToastText" class="text-xs opacity-90"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Panel (hidden by default, can be toggled by admin) -->
+    <div id="settingsPanel" class="fixed inset-y-0 right-0 w-80 bg-white dark:bg-gray-900 shadow-xl z-50 transform translate-x-full transition-transform">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold" data-lang-key="settings">Settings</h3>
+                <button id="closeSettings" class="text-gray-500">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Language Toggle -->
+                <div class="flex justify-between items-center">
+                    <span data-lang-key="language">Language</span>
+                    <label class="switch">
+                        <input type="checkbox" id="languageToggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <!-- Notifications Toggle -->
+                <div class="flex justify-between items-center">
+                    <span data-lang-key="notifications">Notifications</span>
+                    <label class="switch">
+                        <input type="checkbox" id="notificationToggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <!-- Sound Toggle -->
+                <div class="flex justify-between items-center">
+                    <span data-lang-key="sound">Sound</span>
+                    <label class="switch">
+                        <input type="checkbox" id="soundToggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <!-- Prediction Mode Toggle -->
+                <div class="flex justify-between items-center">
+                    <span data-lang-key="prediction_mode">Prediction Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="predictionModeToggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <!-- Reset Button -->
+                <button id="resetSettingsBtn" class="w-full py-2 bg-gray-200 dark:bg-gray-800 rounded-lg mt-6" data-lang-key="reset_settings">
+                    Reset Settings
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete All History Button (hidden in main UI but accessible through settings) -->
+    <button id="deleteAllHistoryBtn" class="hidden"></button>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

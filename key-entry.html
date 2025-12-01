@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enter Access Key | Prediction Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Inter', sans-serif;
+        }
+        .glow {
+            box-shadow: 0 0 30px rgba(147, 51, 234, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="bg-gradient-to-br from-gray-900 to-black rounded-2xl p-8 glow border border-purple-500/30">
+            <!-- Logo/Brand -->
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-brain text-3xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">Prediction Pro</h1>
+                <p class="text-gray-400">AI-Powered WinGo Predictions</p>
+            </div>
+            
+            <!-- Key Entry Form -->
+            <div class="mb-6">
+                <label class="block text-gray-300 text-sm font-medium mb-3">
+                    Enter Your Access Key
+                </label>
+                <div class="relative">
+                    <i class="fas fa-key absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
+                    <input type="text" id="accessKey" 
+                           placeholder="XXXX-XXXX-XXXX-XXXX"
+                           class="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white font-mono text-center focus:border-purple-500 focus:outline-none">
+                </div>
+                <p class="text-xs text-gray-500 mt-2 text-center">
+                    Your key should look like: VIP-ABCD-1234-EFGH
+                </p>
+            </div>
+            
+            <!-- Features -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-white mb-4 text-center">Premium Features</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center text-gray-300">
+                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                        <span>Real-time AI Predictions</span>
+                    </div>
+                    <div class="flex items-center text-gray-300">
+                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                        <span>95%+ Accuracy Rate</span>
+                    </div>
+                    <div class="flex items-center text-gray-300">
+                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                        <span>24/7 Live Updates</span>
+                    </div>
+                    <div class="flex items-center text-gray-300">
+                        <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                        <span>Advanced Analytics Dashboard</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="space-y-3">
+                <button id="validateBtn" 
+                        class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all flex items-center justify-center">
+                    <i class="fas fa-rocket mr-2"></i>Access Premium System
+                </button>
+                
+                <a href="https://your-site.com/purchase" 
+                   class="block text-center py-3 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 transition">
+                    <i class="fas fa-shopping-cart mr-2"></i>Purchase Access Key
+                </a>
+                
+                <a href="admin.html" 
+                   class="block text-center py-2 text-sm text-gray-500 hover:text-gray-300 transition">
+                    <i class="fas fa-user-shield mr-1"></i>Admin Panel
+                </a>
+            </div>
+            
+            <!-- Status Message -->
+            <div id="statusMessage" class="mt-4 text-center text-sm hidden"></div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="text-center mt-6 text-gray-500 text-sm">
+            <p>© 2024 Prediction Pro. All rights reserved.</p>
+            <p class="mt-1">Need help? Contact support@predictionpro.com</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('validateBtn').addEventListener('click', validateKey);
+        document.getElementById('accessKey').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') validateKey();
+        });
+        
+        function validateKey() {
+            const keyInput = document.getElementById('accessKey');
+            const key = keyInput.value.trim().toUpperCase();
+            const statusEl = document.getElementById('statusMessage');
+            
+            if (!key) {
+                showStatus('Please enter your access key', 'error');
+                return;
+            }
+            
+            // Load keys from localStorage
+            const keysData = localStorage.getItem('access_keys_db');
+            if (!keysData) {
+                showStatus('System not initialized. Please contact admin.', 'error');
+                return;
+            }
+            
+            const keys = JSON.parse(keysData);
+            const keyData = keys.find(k => k.key === key);
+            
+            if (!keyData) {
+                showStatus('Invalid access key. Please check and try again.', 'error');
+                return;
+            }
+            
+            // Check key status
+            if (keyData.status !== 'active') {
+                showStatus(`Key is ${keyData.status}. Please contact support.`, 'error');
+                return;
+            }
+            
+            // Check expiration
+            if (Date.now() > keyData.expiresAt) {
+                showStatus('Key has expired. Please renew your subscription.', 'error');
+                return;
+            }
+            
+            // Check uses
+            if (keyData.usesRemaining <= 0) {
+                showStatus('No uses remaining on this key.', 'error');
+                return;
+            }
+            
+            // Valid key - save and redirect
+            localStorage.setItem('user_access_key', key);
+            
+            // Decrement uses
+            keyData.usesRemaining--;
+            localStorage.setItem('access_keys_db', JSON.stringify(keys));
+            
+            showStatus('Access granted! Redirecting to premium system...', 'success');
+            
+            // Redirect to main app
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 1500);
+        }
+        
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `mt-4 text-center text-sm ${
+                type === 'error' ? 'text-red-400' : 'text-green-400'
+            }`;
+            statusEl.classList.remove('hidden');
+            
+            // Auto hide after 5 seconds
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                }, 5000);
+            }
+        }
+        
+        // Check if user already has a valid key
+        function checkExistingKey() {
+            const existingKey = localStorage.getItem('user_access_key');
+            if (existingKey) {
+                // Validate existing key
+                const keysData = localStorage.getItem('access_keys_db');
+                if (keysData) {
+                    const keys = JSON.parse(keysData);
+                    const keyData = keys.find(k => k.key === existingKey);
+                    
+                    if (keyData && keyData.status === 'active' && 
+                        Date.now() < keyData.expiresAt && 
+                        keyData.usesRemaining > 0) {
+                        
+                        // Auto-redirect if key is valid
+                        showStatus('Valid key detected. Redirecting...', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'index.html';
+                        }, 1000);
+                    }
+                }
+            }
+        }
+        
+        // Check on page load
+        document.addEventListener('DOMContentLoaded', checkExistingKey);
+    </script>
+</body>
+</html>

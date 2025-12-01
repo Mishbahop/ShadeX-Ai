@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Global Key Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #475569;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .gradient-border {
+            border: 2px solid transparent;
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary)) padding-box,
+                        linear-gradient(135deg, var(--accent-blue), var(--accent-purple)) border-box;
+        }
+
+        .card-shadow {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: var(--accent-purple);
+            border-radius: 3px;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-active { color: var(--accent-green); }
+        .status-expired { color: var(--accent-red); }
+        .status-revoked { color: var(--accent-yellow); }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Top Navigation -->
+    <nav class="glass border-b border-gray-800 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-key text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Global Key Admin</h1>
+                        <p class="text-sm text-gray-400">Manage access keys for all users</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:flex items-center space-x-4">
+                        <div class="text-right">
+                            <p class="text-sm font-medium">Admin</p>
+                            <p class="text-xs text-gray-400">Super Administrator</p>
+                        </div>
+                        <div class="w-8 h-8 bg-gray-700 rounded-full"></div>
+                    </div>
+                    <button id="logoutBtn" class="px-4 py-2 bg-red-600/20 text-red-300 rounded-lg hover:bg-red-600/30 transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8">
+        <!-- Stats Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="glass rounded-xl p-6 card-shadow fade-in">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Total Keys</p>
+                        <p class="text-3xl font-bold" id="totalKeys">0</p>
+                    </div>
+                    <i class="fas fa-key text-2xl text-blue-400"></i>
+                </div>
+                <div class="mt-4">
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>Active</span>
+                        <span id="activeKeys">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass rounded-xl p-6 card-shadow fade-in">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Total Revenue</p>
+                        <p class="text-3xl font-bold" id="totalRevenue">$0</p>
+                    </div>
+                    <i class="fas fa-dollar-sign text-2xl text-green-400"></i>
+                </div>
+                <div class="mt-4">
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>Today</span>
+                        <span id="todayRevenue">$0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass rounded-xl p-6 card-shadow fade-in">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Active Users</p>
+                        <p class="text-3xl font-bold" id="activeUsers">0</p>
+                    </div>
+                    <i class="fas fa-users text-2xl text-purple-400"></i>
+                </div>
+                <div class="mt-4">
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>24h Active</span>
+                        <span id="dailyActive">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass rounded-xl p-6 card-shadow fade-in">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Key Usage</p>
+                        <p class="text-3xl font-bold" id="keyUsage">0%</p>
+                    </div>
+                    <i class="fas fa-chart-line text-2xl text-yellow-400"></i>
+                </div>
+                <div class="mt-4">
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>Total Uses</span>
+                        <span id="totalUsesCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Key Generation Card -->
+                <div class="glass rounded-2xl p-6 card-shadow gradient-border">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-plus-circle text-green-400 mr-3"></i>
+                        Generate New Global Key
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Duration</label>
+                            <select id="keyDuration" class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="1">1 Day - $9.99</option>
+                                <option value="7">7 Days - $49.99</option>
+                                <option value="30">30 Days - $199.99</option>
+                                <option value="90">90 Days - $499.99</option>
+                                <option value="365">1 Year - $999.99</option>
+                                <option value="custom">Custom Duration</option>
+                            </select>
+                        </div>
+                        
+                        <div id="customDurationContainer" class="hidden">
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Custom Days</label>
+                            <input type="number" id="customDays" min="1" max="3650" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Enter days">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Uses Limit</label>
+                            <input type="number" id="usesLimit" min="1" value="10000" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Price ($)</label>
+                            <input type="number" id="keyPrice" step="0.01" min="0" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="0.00">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Customer Name</label>
+                            <input type="text" id="customerName" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Optional">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Customer Email</label>
+                            <input type="email" id="customerEmail" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Optional">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-300 text-sm font-medium mb-2">Notes</label>
+                        <textarea id="keyNotes" rows="2"
+                                  class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="Optional notes about this key"></textarea>
+                    </div>
+                    
+                    <button id="generateKeyBtn" 
+                            class="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300">
+                        <i class="fas fa-bolt mr-2"></i>Generate Global Key
+                    </button>
+                </div>
+
+                <!-- Generated Key Display -->
+                <div id="generatedKeyCard" class="glass rounded-2xl p-6 card-shadow gradient-border hidden fade-in">
+                    <h2 class="text-xl font-bold mb-4 flex items-center">
+                        <i class="fas fa-key text-yellow-400 mr-3"></i>
+                        Generated Key Details
+                    </h2>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-300 text-sm font-medium mb-2">Key Code</label>
+                        <div class="flex items-center space-x-2">
+                            <input id="generatedKey" readonly 
+                                   class="flex-1 p-4 bg-gray-900/50 text-white font-mono text-lg rounded-lg border border-gray-700">
+                            <button id="copyKeyBtn" 
+                                    class="px-4 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div class="p-3 bg-gray-800/30 rounded-lg">
+                            <p class="text-gray-400 text-xs">Expires</p>
+                            <p class="font-medium" id="keyExpiryDate">-</p>
+                        </div>
+                        <div class="p-3 bg-gray-800/30 rounded-lg">
+                            <p class="text-gray-400 text-xs">Uses</p>
+                            <p class="font-medium" id="keyUsesCount">-</p>
+                        </div>
+                        <div class="p-3 bg-gray-800/30 rounded-lg">
+                            <p class="text-gray-400 text-xs">Customer</p>
+                            <p class="font-medium" id="keyCustomer">-</p>
+                        </div>
+                        <div class="p-3 bg-gray-800/30 rounded-lg">
+                            <p class="text-gray-400 text-xs">Price</p>
+                            <p class="font-medium" id="keyPriceDisplay">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keys List Table -->
+                <div class="glass rounded-2xl p-6 card-shadow gradient-border">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <h2 class="text-xl font-bold flex items-center">
+                            <i class="fas fa-list text-blue-400 mr-3"></i>
+                            All Global Keys
+                        </h2>
+                        <div class="flex space-x-2">
+                            <div class="relative">
+                                <input type="text" id="searchKeys" 
+                                       class="pl-10 pr-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white text-sm"
+                                       placeholder="Search keys...">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                            <button id="exportBtn" class="px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 transition text-sm">
+                                <i class="fas fa-download mr-2"></i>Export
+                            </button>
+                            <button id="filterBtn" class="px-4 py-2 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-700 transition text-sm">
+                                <i class="fas fa-filter mr-2"></i>Filter
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto scrollbar-thin">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-800">
+                                    <th class="p-3 text-left text-sm font-medium text-gray-400">Key</th>
+                                    <th class="p-3 text-left text-sm font-medium text-gray-400">Expires</th>
+                                    <th class="p-3 text-left text-sm font-medium text-gray-400">Uses</th>
+                                    <th class="p-3 text-left text-sm font-medium text-gray-400">Status</th>
+                                    <th class="p-3 text-left text-sm font-medium text-gray-400">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="keysTableBody">
+                                <!-- Keys will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-4 flex justify-between items-center">
+                        <div class="text-sm text-gray-400">
+                            Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> keys
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="prevPage" class="px-3 py-1 bg-gray-800/50 text-gray-300 rounded disabled:opacity-50">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span class="px-3 py-1 bg-blue-600 text-white rounded" id="currentPage">1</span>
+                            <button id="nextPage" class="px-3 py-1 bg-gray-800/50 text-gray-300 rounded disabled:opacity-50">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="space-y-8">
+                <!-- System Settings -->
+                <div class="glass rounded-2xl p-6 card-shadow gradient-border">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-cog text-purple-400 mr-3"></i>
+                        System Settings
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Redirect URL</label>
+                            <input type="url" id="redirectUrl" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   value="https://your-site.com/purchase">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">Admin Password</label>
+                            <input type="password" id="adminPassword" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Enter current password to change">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-300 text-sm font-medium mb-2">New Password</label>
+                            <input type="password" id="newPassword" 
+                                   class="w-full p-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Leave empty to keep current">
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="autoExpire" class="mr-2" checked>
+                                <label for="autoExpire" class="text-gray-300 text-sm">Auto-expire keys</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="enableLogging" class="mr-2" checked>
+                                <label for="enableLogging" class="text-gray-300 text-sm">Enable logging</label>
+                            </div>
+                        </div>
+                        
+                        <button id="saveSettingsBtn" 
+                                class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300">
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="glass rounded-2xl p-6 card-shadow gradient-border">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-history text-orange-400 mr-3"></i>
+                        Recent Activity
+                    </h2>
+                    
+                    <div class="space-y-4 max-h-80 overflow-y-auto scrollbar-thin" id="activityList">
+                        <!-- Activities will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="glass rounded-2xl p-6 card-shadow gradient-border">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-bolt text-yellow-400 mr-3"></i>
+                        Quick Actions
+                    </h2>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="revokeExpiredBtn" class="p-3 bg-red-600/20 text-red-300 rounded-lg hover:bg-red-600/30 transition text-sm">
+                            <i class="fas fa-ban mr-2"></i>Revoke Expired
+                        </button>
+                        <button id="backupBtn" class="p-3 bg-blue-600/20 text-blue-300 rounded-lg hover:bg-blue-600/30 transition text-sm">
+                            <i class="fas fa-database mr-2"></i>Backup DB
+                        </button>
+                        <button id="clearLogsBtn" class="p-3 bg-gray-600/20 text-gray-300 rounded-lg hover:bg-gray-600/30 transition text-sm">
+                            <i class="fas fa-trash mr-2"></i>Clear Logs
+                        </button>
+                        <button id="refreshBtn" class="p-3 bg-green-600/20 text-green-300 rounded-lg hover:bg-green-600/30 transition text-sm">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Usage Statistics -->
+                <div class="glass rounded-2xl p-6 card-shadow gradient-border">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-chart-pie text-green-400 mr-3"></i>
+                        Usage Stats
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-gray-300">Active Keys</span>
+                                <span class="text-white" id="statsActive">0%</span>
+                            </div>
+                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="activeBar" class="h-full bg-green-500"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-gray-300">Expired Keys</span>
+                                <span class="text-white" id="statsExpired">0%</span>
+                            </div>
+                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="expiredBar" class="h-full bg-red-500"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-gray-300">Usage Rate</span>
+                                <span class="text-white" id="statsUsage">0%</span>
+                            </div>
+                            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div id="usageBar" class="h-full bg-blue-500"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="glass rounded-2xl p-6 max-w-md w-full card-shadow gradient-border">
+            <h3 class="text-xl font-bold mb-4" id="modalTitle">Confirm Action</h3>
+            <p class="text-gray-300 mb-6" id="modalMessage"></p>
+            <div class="flex space-x-3">
+                <button id="modalCancel" class="flex-1 py-3 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 transition">
+                    Cancel
+                </button>
+                <button id="modalConfirm" class="flex-1 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg hidden z-50">
+        <div class="flex items-center">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <!-- Key Details Modal -->
+    <div id="keyDetailsModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="glass rounded-2xl p-6 max-w-2xl w-full card-shadow gradient-border">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">Key Details</h3>
+                <button id="closeDetails" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4" id="keyDetailsContent">
+                <!-- Key details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
