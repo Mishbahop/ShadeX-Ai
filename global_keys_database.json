@@ -1,8 +1,9 @@
 {
-  "admin_password": "admin123456",
+  "admin_password": "admin123",
   "settings": {
     "redirect_url": "https://your-site.com/purchase",
     "auto_expire": false,
+    "admin_password": "admin123",
     "prices": {
       "1": 9.99,
       "7": 49.99,

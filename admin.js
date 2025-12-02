@@ -13,6 +13,8 @@ class GlobalKeyAdmin {
         this.searchTerm = '';
         this.apiUrl = 'key-api.php';
         this.adminPassword = sessionStorage.getItem('admin_password') || '';
+        this.serverSyncFailed = false;
+        this.lastSyncErrorMessage = '';
         
         this.defaultPrices = {
             '1': 9.99,
@@ -245,7 +247,7 @@ class GlobalKeyAdmin {
                     created_at: new Date().toISOString()
                 });
                 
-                this.saveDatabase();
+                await this.saveDatabase({ silent: true });
             }
             
             this.keys = this.db.keys || [];
@@ -272,10 +274,12 @@ class GlobalKeyAdmin {
         }
     }
     
-    saveDatabase() {
+    async saveDatabase(options = {}) {
+        const { silent = false } = options;
+
         try {
             this.persistLocalDatabase();
-            this.syncDatabaseToServer();
+            const synced = await this.syncDatabaseToServer();
             
             // Create backup with timestamp
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -284,10 +288,19 @@ class GlobalKeyAdmin {
             // Keep only last 5 backups
             this.cleanupOldBackups();
             
-            return true;
+            if (!synced && !silent) {
+                this.showToast(
+                    `Saved locally, but server sync failed: ${this.lastSyncErrorMessage || 'Unknown error'}. Keys will not work on other devices until sync succeeds.`,
+                    'error'
+                );
+            }
+
+            return synced;
         } catch (error) {
             console.error('Error saving database:', error);
-            this.showToast('Error saving database', 'error');
+            if (!silent) {
+                this.showToast('Error saving database', 'error');
+            }
             return false;
         }
     }
@@ -335,12 +348,13 @@ class GlobalKeyAdmin {
         const password = this.adminPassword || this.getStoredAdminPassword();
         if (!password) {
             console.warn('Admin password not set; skipping remote sync');
-            return;
+            return false;
         }
 
         try {
             const response = await fetch(`${this.apiUrl}?action=save_admin_db`, {
                 method: 'POST',
+                cache: 'no-store',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     admin_password: password,
@@ -348,16 +362,46 @@ class GlobalKeyAdmin {
                 })
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+            const text = await response.text();
+            let result = null;
+            try {
+                result = JSON.parse(text);
+            } catch (parseErr) {
+                // Keep raw text for debugging
+                result = { message: text || 'Invalid JSON response from server' };
             }
 
-            const result = await response.json();
+            if (!response.ok) {
+                const msg = result?.message || `HTTP ${response.status}`;
+                throw new Error(msg);
+            }
+
             if (!result.success) {
                 throw new Error(result.message || 'Unknown error saving database');
             }
+
+            this.serverSyncFailed = false;
+            this.lastSyncErrorMessage = '';
+            return true;
         } catch (err) {
+            this.serverSyncFailed = true;
+            this.lastSyncErrorMessage = err?.message || 'Unknown sync error';
             console.warn('Failed to sync database to server:', err);
+
+            // If the admin password is wrong, force re-auth so the user can fix it
+            if (this.lastSyncErrorMessage.toLowerCase().includes('admin password')) {
+                sessionStorage.removeItem('admin_password');
+                localStorage.removeItem('admin_authenticated');
+                localStorage.removeItem('admin_auth_expiry');
+                this.showToast('Admin password rejected by server. Please log in again.', 'error');
+                setTimeout(() => {
+                    if (!document.getElementById('loginModal')) {
+                        this.showLoginModal();
+                    }
+                }, 300);
+            }
+
+            return false;
         }
     }
     
@@ -484,7 +528,7 @@ class GlobalKeyAdmin {
         }
     }
     
-    generateKey() {
+    async generateKey() {
         // Get form values
         const durationSelect = document.getElementById('keyDuration');
         if (!durationSelect) return;
@@ -550,7 +594,7 @@ class GlobalKeyAdmin {
         this.logActivity(`Generated new key: ${key} for ${durationDays} days ($${price.toFixed(2)})`);
         
         // Save database
-        this.saveDatabase();
+        const synced = await this.saveDatabase();
         
         // Update UI
         this.keys = this.db.keys;
@@ -565,7 +609,12 @@ class GlobalKeyAdmin {
         // Show generated key
         this.showGeneratedKey(keyData);
         
-        this.showToast('Global key generated successfully!');
+        this.showToast(
+            synced
+                ? 'Global key generated successfully!'
+                : `Key saved locally. Fix server sync to use it on all devices. ${this.lastSyncErrorMessage || ''}`.trim(),
+            synced ? 'success' : 'error'
+        );
     }
     
     generateKeyCode() {
@@ -702,7 +751,7 @@ class GlobalKeyAdmin {
             // Update status if expired and auto-expire is enabled
             if (isExpired && keyData.status === 'active' && this.db.settings.auto_expire) {
                 keyData.status = 'expired';
-                this.saveDatabase();
+                this.saveDatabase({ silent: true });
             }
             
             const row = document.createElement('tr');
@@ -919,38 +968,49 @@ class GlobalKeyAdmin {
                 this.showConfirmModal(
                     'Revoke Key',
                     `Are you sure you want to revoke key: ${keyData.key}?`,
-                    () => {
+                    async () => {
                         keyData.status = 'revoked';
                         this.logActivity(`Revoked key: ${keyData.key}`);
-                        this.saveDatabase();
+                        const synced = await this.saveDatabase();
                         this.renderKeysTable();
                         this.updateStats();
-                        this.showToast('Key revoked successfully');
+                        this.showToast(
+                            synced ? 'Key revoked successfully' : 'Key revoked locally. Server sync failed.',
+                            synced ? 'success' : 'error'
+                        );
                     }
                 );
                 break;
                 
             case 'activate':
-                keyData.status = 'active';
-                this.logActivity(`Activated key: ${keyData.key}`);
-                this.saveDatabase();
-                this.renderKeysTable();
-                this.updateStats();
-                this.showToast('Key activated successfully');
+                (async () => {
+                    keyData.status = 'active';
+                    this.logActivity(`Activated key: ${keyData.key}`);
+                    const synced = await this.saveDatabase();
+                    this.renderKeysTable();
+                    this.updateStats();
+                    this.showToast(
+                        synced ? 'Key activated successfully' : 'Key activated locally. Server sync failed.',
+                        synced ? 'success' : 'error'
+                    );
+                })();
                 break;
                 
             case 'delete':
                 this.showConfirmModal(
                     'Delete Key',
                     `Are you sure you want to delete key: ${keyData.key}? This cannot be undone.`,
-                    () => {
+                    async () => {
                         this.db.keys = this.db.keys.filter(k => k.id !== keyId);
                         this.logActivity(`Deleted key: ${keyData.key}`);
-                        this.saveDatabase();
+                        const synced = await this.saveDatabase();
                         this.keys = this.db.keys;
                         this.filterKeys();
                         this.updateStats();
-                        this.showToast('Key deleted successfully');
+                        this.showToast(
+                            synced ? 'Key deleted successfully' : 'Key deleted locally. Server sync failed.',
+                            synced ? 'success' : 'error'
+                        );
                         document.getElementById('keyDetailsModal').classList.add('hidden');
                     }
                 );
@@ -1036,7 +1096,7 @@ class GlobalKeyAdmin {
         if (usageBar) usageBar.style.width = usagePercentage + '%';
     }
     
-    saveSettings() {
+    async saveSettings() {
         const currentPasswordInput = document.getElementById('adminPassword');
         const newPasswordInput = document.getElementById('newPassword');
         const redirectUrlInput = document.getElementById('redirectUrl');
@@ -1074,9 +1134,12 @@ class GlobalKeyAdmin {
         this.db.settings.enable_logging = enableLogging;
         
         // Save database
-        this.saveDatabase();
+        const synced = await this.saveDatabase();
         
-        this.showToast('Settings saved successfully');
+        this.showToast(
+            synced ? 'Settings saved successfully' : 'Settings saved locally. Server sync failed.',
+            synced ? 'success' : 'error'
+        );
     }
     
     exportDatabase() {
@@ -1118,7 +1181,7 @@ class GlobalKeyAdmin {
         this.showToast('Backup created successfully');
     }
     
-    revokeExpiredKeys() {
+    async revokeExpiredKeys() {
         const now = new Date();
         let revokedCount = 0;
         
@@ -1131,19 +1194,22 @@ class GlobalKeyAdmin {
         });
         
         if (revokedCount > 0) {
-            this.saveDatabase();
+            const synced = await this.saveDatabase();
             this.keys = this.db.keys;
             this.filterKeys();
             this.updateStats();
             
             this.logActivity(`Auto-revoked ${revokedCount} expired keys`);
-            this.showToast(`Revoked ${revokedCount} expired keys`);
+            this.showToast(
+                synced ? `Revoked ${revokedCount} expired keys` : 'Expired keys revoked locally. Server sync failed.',
+                synced ? 'success' : 'error'
+            );
         } else {
             this.showToast('No expired keys to revoke', 'info');
         }
     }
     
-    clearOldLogs() {
+    async clearOldLogs() {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         
@@ -1169,11 +1235,14 @@ class GlobalKeyAdmin {
             }
         });
         
-        this.saveDatabase();
+        const synced = await this.saveDatabase({ silent: true });
         this.loadActivityLogs();
         
         this.logActivity(`Cleared ${clearedCount} old logs`);
-        this.showToast(`Cleared ${clearedCount} old logs`);
+        this.showToast(
+            synced ? `Cleared ${clearedCount} old logs` : 'Cleared logs locally. Server sync failed.',
+            synced ? 'success' : 'error'
+        );
     }
     
     async refreshAll() {
@@ -1286,7 +1355,7 @@ class GlobalKeyAdmin {
         this.loadActivityLogs();
         
         // Save database
-        this.saveDatabase();
+        this.saveDatabase({ silent: true });
     }
     
     formatTimeAgo(timestamp) {

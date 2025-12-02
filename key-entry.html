@@ -14,6 +14,14 @@
         .glow {
             box-shadow: 0 0 30px rgba(147, 51, 234, 0.3);
         }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+            20%, 40%, 60%, 80% { transform: translateX(6px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -36,11 +44,11 @@
                 <div class="relative">
                     <i class="fas fa-key absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></i>
                     <input type="text" id="accessKey" 
-                           placeholder="XXXX-XXXX-XXXX-XXXX"
+                           placeholder="GLB-XXXX-XXXX-XXXX"
                            class="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-gray-700 rounded-lg text-white font-mono text-center focus:border-purple-500 focus:outline-none">
                 </div>
                 <p class="text-xs text-gray-500 mt-2 text-center">
-                    Your key should look like: VIP-ABCD-1234-EFGH
+                    Your key should look like: GLB-ABCD-1234-EFGH
                 </p>
             </div>
             
@@ -97,111 +105,206 @@
     </div>
 
     <script>
-        document.getElementById('validateBtn').addEventListener('click', validateKey);
-        document.getElementById('accessKey').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') validateKey();
+        const API_URL = 'key-api.php';
+        const LOCAL_STORAGE_KEY = 'global_access_key';
+        const ADMIN_DB_CACHE_KEY = 'global_keys_database';
+
+        const statusEl = document.getElementById('statusMessage');
+        const keyInput = document.getElementById('accessKey');
+        const validateBtn = document.getElementById('validateBtn');
+
+        validateBtn.addEventListener('click', () => handleValidate(keyInput.value));
+        keyInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleValidate(keyInput.value);
         });
-        
-        function validateKey() {
-            const keyInput = document.getElementById('accessKey');
-            const key = keyInput.value.trim().toUpperCase();
-            const statusEl = document.getElementById('statusMessage');
-            
-            if (!key) {
-                showStatus('Please enter your access key', 'error');
-                return;
+
+        async function refreshDatabaseFromServer() {
+            try {
+                const response = await fetch(`${API_URL}?action=get_admin_db`, {
+                    method: 'GET',
+                    cache: 'no-store'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const remoteDb = await response.json();
+                if (remoteDb && Array.isArray(remoteDb.keys)) {
+                    localStorage.setItem(ADMIN_DB_CACHE_KEY, JSON.stringify(remoteDb));
+                }
+            } catch (err) {
+                console.warn('Could not refresh key database from server', err);
             }
-            
-            // Load keys from localStorage
-            const keysData = localStorage.getItem('access_keys_db');
-            if (!keysData) {
-                showStatus('System not initialized. Please contact admin.', 'error');
-                return;
-            }
-            
-            const keys = JSON.parse(keysData);
-            const keyData = keys.find(k => k.key === key);
-            
-            if (!keyData) {
-                showStatus('Invalid access key. Please check and try again.', 'error');
-                return;
-            }
-            
-            // Check key status
-            if (keyData.status !== 'active') {
-                showStatus(`Key is ${keyData.status}. Please contact support.`, 'error');
-                return;
-            }
-            
-            // Check expiration
-            if (Date.now() > keyData.expiresAt) {
-                showStatus('Key has expired. Please renew your subscription.', 'error');
-                return;
-            }
-            
-            // Check uses
-            if (keyData.usesRemaining <= 0) {
-                showStatus('No uses remaining on this key.', 'error');
-                return;
-            }
-            
-            // Valid key - save and redirect
-            localStorage.setItem('user_access_key', key);
-            
-            // Decrement uses
-            keyData.usesRemaining--;
-            localStorage.setItem('access_keys_db', JSON.stringify(keys));
-            
-            showStatus('Access granted! Redirecting to premium system...', 'success');
-            
-            // Redirect to main app
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 1500);
         }
-        
-        function showStatus(message, type = 'info') {
-            const statusEl = document.getElementById('statusMessage');
-            statusEl.textContent = message;
+
+        function showStatus(message, type = 'info', isLoading = false) {
+            if (!statusEl) return;
+
+            if (isLoading) {
+                statusEl.innerHTML = `
+                    <div class="flex items-center justify-center">
+                        <i class="fas fa-circle-notch fa-spin mr-2 text-purple-400"></i>
+                        <span>${message}</span>
+                    </div>
+                `;
+            } else {
+                statusEl.textContent = message;
+            }
+
             statusEl.className = `mt-4 text-center text-sm ${
                 type === 'error' ? 'text-red-400' : 'text-green-400'
             }`;
             statusEl.classList.remove('hidden');
-            
-            // Auto hide after 5 seconds
-            if (type !== 'error') {
-                setTimeout(() => {
-                    statusEl.classList.add('hidden');
-                }, 5000);
-            }
         }
-        
-        // Check if user already has a valid key
-        function checkExistingKey() {
-            const existingKey = localStorage.getItem('user_access_key');
-            if (existingKey) {
-                // Validate existing key
-                const keysData = localStorage.getItem('access_keys_db');
-                if (keysData) {
-                    const keys = JSON.parse(keysData);
-                    const keyData = keys.find(k => k.key === existingKey);
-                    
-                    if (keyData && keyData.status === 'active' && 
-                        Date.now() < keyData.expiresAt && 
-                        keyData.usesRemaining > 0) {
-                        
-                        // Auto-redirect if key is valid
-                        showStatus('Valid key detected. Redirecting...', 'success');
-                        setTimeout(() => {
-                            window.location.href = 'index.html';
-                        }, 1000);
+
+        async function handleValidate(rawKey) {
+            const key = rawKey.trim().toUpperCase();
+            if (!key) {
+                showStatus('Please enter your access key', 'error');
+                return;
+            }
+
+            showStatus('Validating key...', 'info', true);
+            const result = await validateKey(key);
+
+            if (result.valid) {
+                localStorage.setItem(LOCAL_STORAGE_KEY, key);
+
+                // Keep local fallback database in sync for offline use
+                try {
+                    const savedData = localStorage.getItem('global_keys_database');
+                    if (savedData) {
+                        const db = JSON.parse(savedData);
+                        const keyIndex = db.keys.findIndex(k => k.key === key);
+                        if (keyIndex !== -1 && db.keys[keyIndex].uses_remaining > 0) {
+                            db.keys[keyIndex].uses_remaining--;
+                            localStorage.setItem('global_keys_database', JSON.stringify(db));
+                        }
                     }
+                } catch (err) {
+                    console.warn('Could not update local key cache', err);
                 }
+
+                showStatus('Access granted! Redirecting to premium system...', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1200);
+            } else {
+                showStatus(result.message || 'Invalid access key. Please try again.', 'error');
+                keyInput.classList.add('animate-shake');
+                setTimeout(() => keyInput.classList.remove('animate-shake'), 500);
             }
         }
-        
-        // Check on page load
-        document.addEventListener('DOMContentLoaded', checkExistingKey);
+
+        async function validateKey(key) {
+            try {
+                const response = await fetch(`${API_URL}?action=validate_key`, {
+                    method: 'POST',
+                    cache: 'no-store',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.warn('Remote validation failed, falling back to local copy', error);
+                return validateKeyLocal(key);
+            }
+        }
+
+        function validateKeyLocal(key) {
+            try {
+                const savedData = localStorage.getItem('global_keys_database');
+                if (!savedData) {
+                    return {
+                        valid: false,
+                        message: 'System not initialized. Please contact admin.',
+                        status: 'error'
+                    };
+                }
+
+                const db = JSON.parse(savedData);
+                const keyEntry = db.keys.find(k => k.key === key);
+
+                if (!keyEntry) {
+                    return {
+                        valid: false,
+                        message: 'Invalid access key. Please check and try again.',
+                        status: 'invalid'
+                    };
+                }
+
+                if (keyEntry.status !== 'active') {
+                    return {
+                        valid: false,
+                        message: `Key is ${keyEntry.status}. Please contact support.`,
+                        status: keyEntry.status
+                    };
+                }
+
+                const expiresAt = new Date(keyEntry.expires_at);
+                if (Date.now() > expiresAt) {
+                    return {
+                        valid: false,
+                        message: 'Key has expired. Please renew your subscription.',
+                        status: 'expired'
+                    };
+                }
+
+                if (keyEntry.uses_remaining <= 0) {
+                    return {
+                        valid: false,
+                        message: 'No uses remaining on this key.',
+                        status: 'exhausted'
+                    };
+                }
+
+                return {
+                    valid: true,
+                    message: 'Access granted',
+                    status: 'active',
+                    key_data: {
+                        key: keyEntry.key,
+                        expires_at: keyEntry.expires_at,
+                        days_remaining: Math.ceil((expiresAt - Date.now()) / (1000 * 60 * 60 * 24)),
+                        uses_remaining: keyEntry.uses_remaining,
+                        total_uses: keyEntry.total_uses
+                    }
+                };
+            } catch (error) {
+                console.error('Local validation error:', error);
+                return {
+                    valid: false,
+                    message: 'Validation error. Please try again.',
+                    status: 'error'
+                };
+            }
+        }
+
+        async function checkExistingKey() {
+            const existingKey = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (!existingKey) return;
+
+            const result = await validateKey(existingKey);
+            if (result.valid) {
+                showStatus('Valid key detected. Redirecting...', 'success');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 800);
+            } else {
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await refreshDatabaseFromServer();
+            await checkExistingKey();
+        });
     </script>
 </body>
 </html>

@@ -36,6 +36,7 @@ const GLOBAL_KEY_SYSTEM = (function() {
         try {
             const response = await fetch(`${API_URL}?action=validate_key`, {
                 method: 'POST',
+                cache: 'no-store',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -130,12 +131,34 @@ const GLOBAL_KEY_SYSTEM = (function() {
             };
         }
     }
+
+    // Refresh local database cache from server so all devices share the latest keys
+    async function refreshDatabaseCache() {
+        try {
+            const response = await fetch(`${API_URL}?action=get_admin_db`, {
+                method: 'GET',
+                cache: 'no-store'
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const remoteDb = await response.json();
+            if (remoteDb && Array.isArray(remoteDb.keys)) {
+                localStorage.setItem('global_keys_database', JSON.stringify(remoteDb));
+            }
+        } catch (error) {
+            console.warn('Could not refresh key database from server', error);
+        }
+    }
     
     // Check key status (without consuming a use)
     async function checkKeyStatus(key) {
         try {
             const response = await fetch(`${API_URL}?action=check_status`, {
                 method: 'POST',
+                cache: 'no-store',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -523,6 +546,7 @@ const GLOBAL_KEY_SYSTEM = (function() {
     // Initialize key system
     async function init() {
         try {
+            await refreshDatabaseCache();
             const key = loadKey();
             
             if (!key) {

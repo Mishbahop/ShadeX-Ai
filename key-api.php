@@ -57,8 +57,14 @@ function loadDatabase() {
 
 function saveDatabase($data) {
     global $database_file;
-    file_put_contents($database_file, json_encode($data, JSON_PRETTY_PRINT));
-    return true;
+    $json = json_encode($data, JSON_PRETTY_PRINT);
+
+    if ($json === false) {
+        return false;
+    }
+
+    $result = @file_put_contents($database_file, $json, LOCK_EX);
+    return $result !== false;
 }
 
 function logActivity($db, $message, $type = 'info') {
@@ -242,7 +248,17 @@ if ($method === 'POST') {
             }
             $incoming_db['admin_password'] = $incoming_db['settings']['admin_password'] ?? $current_password;
 
-            saveDatabase($incoming_db);
+            $saved = saveDatabase($incoming_db);
+
+            if (!$saved) {
+                http_response_code(500);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Failed to save database file. Check file permissions on the server.'
+                ]);
+                exit;
+            }
+
             echo json_encode(['success' => true, 'message' => 'Database saved']);
             break;
             
